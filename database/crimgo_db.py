@@ -53,7 +53,7 @@ async def check_if_exist(from_user):
 #     connection.commit()
 
 async def is_driver_exist(message):
-    cursor.execute('SELECT id from driver where telegram_id = %s', (message.from_user.id,))
+    cursor.execute('SELECT telegram_id from driver where telegram_id = %s', (message.from_user.id,))
     driver_id = cursor.fetchone()
     return driver_id
 
@@ -61,11 +61,11 @@ async def is_driver_valid(state, message):
     is_validated = False
     # Ищем id водителя с комбинацией телефон + пароль
     async with state.proxy() as data:
-        cursor.execute('SELECT id from driver WHERE phone = %s AND otp = %s', tuple(data.values()))
-        drv_id = cursor.fetchone()
+        cursor.execute('SELECT phone from driver WHERE phone = %s AND otp = %s', tuple(data.values()))
+        drv_phone = cursor.fetchone()
     # Если есть, то обновляем данные
-    if drv_id is not None:
-        cursor.execute('UPDATE driver SET (telegram_name, telegram_id) = (%s, %s) WHERE id = %s', (message.from_user.username, message.from_user.id, drv_id))
+    if drv_phone is not None:
+        cursor.execute('UPDATE driver SET (telegram_name, telegram_id, timestamp) = (%s, %s, %s) WHERE phone = %s', (message.from_user.username, message.from_user.id, drv_phone, datetime.datetime.now()))
         connection.commit()
         is_validated = True
     return is_validated
