@@ -23,8 +23,6 @@ async def cmd_get_menu(message: types.Message):
     await bot.send_message(message.from_user.id, 'Что надо хозяин?', reply_markup=kb_admin)
     await message.delete()
 
-#async def cmd_get_menu(message: types.Message):
-#    await message.reply('Админка', reply_markup=kb_admin)
 
 async def cmd_driver_reg(message: types.Message):
     if message.from_user.id == ID:
@@ -53,7 +51,7 @@ async def input_phone(message: types.Message, state: FSMContext):
 
 # Выход из машины состояний
 #@dp.message_handler(state="*", commands=['отмена'])
-# @dp.message_handler(Text(equals='отмена', ignore_case=True), state="*")
+#@dp.message_handler(Text(equals='отмена', ignore_case=True), state="*")
 async def cancel_handler(message: types.Message, state: FSMContext):
     if message.from_user.id == ID:
         current_state = await state.get_state()

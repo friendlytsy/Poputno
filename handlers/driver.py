@@ -35,6 +35,7 @@ async def validate_driver_otp(message: types.Message, state = FSMContext):
     await state.finish()
 
 def register_handlers_driver(dp: Dispatcher):
-    dp.register_message_handler(cmd_get_driver_menu, commands=['Водитель'])
+    #dp.register_message_handler(cmd_subscription, Text(equals='Купить абонемент', ignore_case=True))
+    dp.register_message_handler(cmd_get_driver_menu, Text(equals='Водитель', ignore_case=False))
     dp.register_message_handler(validate_driver_phone, state = FSMValidateDriver.s_input_phone)
     dp.register_message_handler(validate_driver_otp, state = FSMValidateDriver.s_input_otp)
