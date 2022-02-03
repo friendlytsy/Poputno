@@ -36,8 +36,14 @@ async def check_if_exist(from_user):
         cursor.execute('INSERT INTO passenger (telegram_id, telegram_name, timestamp) VALUES (%s, %s, %s)', (from_user.id, from_user.username, datetime.datetime.now()))
         connection.commit()
 
-# async def successful_payment(state):
-
+async def successful_payment(state):
+    # Создаем запись о покупке
+    async with state.proxy() as data:
+        print(data['seat'])
+        cursor.execute('INSERT INTO payment (total_amount, telegram_payment_charge_id, provider_payment_charge_id, otp, pass_id, timestamp)\
+            VALUES (%s, %s, %s, %s, %s, %s)', (data['seat'], data['telegram_payment_charge_id'], data['provider_payment_charge_id'], data['otp'], data['pass_id'], datetime.datetime.now()))
+        #   VALUES (%s, %s, %s, %s, %s, %s)', (data['seat'], data['telegram_payment_charge_id'], data['provider_payment_charge_id'], data['otp'], data['pass_id'], datetime.datetime.now()))
+        connection.commit()
 
 # async def successful_payment(message, otp, trips_left):
 #     # Ищем pass_id клиента 

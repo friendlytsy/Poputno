@@ -5,6 +5,7 @@ from aiogram.dispatcher import FSMContext
 from aiogram.types.message import ContentType
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.dispatcher.filters import Text
+from sqlalchemy import null
 
 from create_bot import dp, bot
 from database import crimgo_db
@@ -21,11 +22,11 @@ class FSMOrder_trip(StatesGroup):
     s_pp_confirmation = State()
     s_trip_confirmation = State()
     s_payment_type = State()
-    s_card_type = State()
-    s_cash_type = State()
-    s_checkout_query = State()
-    s_cash_canceled = State()
-    s_successful_payment = State()
+    # s_card_type = State()
+    # s_cash_type = State()
+    # s_checkout_query = State()
+    # s_cash_canceled = State()
+    # s_successful_payment = State()
 
 # Старт и онбординг
 async def commands_start(message: types.Message):
@@ -90,18 +91,21 @@ async def menu_payment_type(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 # Обработка способа оплаты и выбор соот-го состояния
-async def menu_handle_payment(callback: types.CallbackQuery, state: FSMContext):
-    async with state.proxy() as data:
-            data['payment_type'] = callback.data
-    if callback.data == 'Оплата картой':
-        FSMOrder_trip.s_card_type
+async def menu_handle_payment(callback: types.CallbackQuery, state: FSMContext):        
     if callback.data == 'Наличкой водителю':
-        FSMOrder_trip.s_cash_type
-    
-# Оплата наличкой водителю 
-# async def menu_cash_payment(callback: types.CallbackQuery, state: FSMContext):
-#     await 
+        # Добавляем пустые поля для оплаты наличкой
+        async with state.proxy() as data:
+            data['telegram_payment_charge_id'] = 'null'
+            data['provider_payment_charge_id'] = 'null'
+            data['otp'] = randrange(1000, 9999, 1)
+            data['pass_id'] = callback.from_user.id
 
+        await crimgo_db.successful_payment(state)
+        await callback.message.answer('Оплатите водтелю сумму `{total_amount}` РУБ при посадке! Приятного пользования сервисом CrimGo. Код для посадки `{otp}`'.format(
+            total_amount=int(data['seat'])*100, otp=data['otp']))
+
+    await callback.answer()
+    await state.finish()
 
 # Оплата картой
 #
@@ -157,7 +161,7 @@ def register_handlers_client(dp: Dispatcher):
     dp.register_callback_query_handler(menu_pp_confirm, state=FSMOrder_trip.s_geolocation)
     dp.register_callback_query_handler(menu_trip_confirm, state=FSMOrder_trip.s_pp_confirmation)
     dp.register_callback_query_handler(menu_payment_type, state=FSMOrder_trip.s_trip_confirmation)
-#    dp.register_callback_query_handler(menu_cash_payment, state=FSMOrder_trip.s_cash_type)
+    dp.register_callback_query_handler(menu_handle_payment, state=FSMOrder_trip.s_payment_type)
     #dp.register_callback_query_handler(menu_card_payment, state=FSMOrder_trip.s_payment_type)
     #dp.register_message_handler(process_pre_checkout_query, state = FSMOrder_trip.s_checkout_query)
     #dp.register_message_handler(process_successful_payment, content_types=ContentType.SUCCESSFUL_PAYMENT)
