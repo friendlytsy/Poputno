@@ -1,6 +1,12 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
 #   /start
+btn_share_contact = KeyboardButton('Поделиться контактом', request_contact = True) 
+
+kb_pass_start = ReplyKeyboardMarkup(resize_keyboard=True)
+kb_pass_start.add(btn_share_contact)
+
+#   /menu
 btn_order_trip = KeyboardButton('Заказать поездку') 
 btn_order_subscription = KeyboardButton('Купить абонемент')
 btn_contact_support = KeyboardButton('Чат поддержки')

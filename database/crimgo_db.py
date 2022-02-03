@@ -29,34 +29,24 @@ async def pre_reg_driver(state):
         cursor.execute('INSERT INTO driver (name, phone, otp) VALUES (%s, %s, %s)', tuple(data.values()))
         connection.commit()
 
-async def check_if_exist(from_user):
-    cursor.execute('SELECT telegram_id from passenger where telegram_id = %s', (from_user.id,))
+async def is_exist(message):
+    cursor.execute('SELECT telegram_id from passenger where telegram_id = %s', (message.from_user.id,))
     pass_id = cursor.fetchone()
     if pass_id is None:
-        cursor.execute('INSERT INTO passenger (telegram_id, telegram_name, timestamp) VALUES (%s, %s, %s)', (from_user.id, from_user.username, datetime.datetime.now()))
-        connection.commit()
+        return False
+    else: 
+        return True
+        
+async def create_user(message):
+    cursor.execute('INSERT INTO passenger (telegram_id, telegram_name, phone, timestamp) VALUES (%s, %s, %s, %s)', (message.from_user.id, message.from_user.username, message.contact.phone_number, datetime.datetime.now()))
+    connection.commit()
 
 async def successful_payment(state):
     # Создаем запись о покупке
     async with state.proxy() as data:
-        print(data['seat'])
-        cursor.execute('INSERT INTO payment (total_amount, telegram_payment_charge_id, provider_payment_charge_id, otp, pass_id, timestamp)\
-            VALUES (%s, %s, %s, %s, %s, %s)', (data['seat'], data['telegram_payment_charge_id'], data['provider_payment_charge_id'], data['otp'], data['pass_id'], datetime.datetime.now()))
-        #   VALUES (%s, %s, %s, %s, %s, %s)', (data['seat'], data['telegram_payment_charge_id'], data['provider_payment_charge_id'], data['otp'], data['pass_id'], datetime.datetime.now()))
+        cursor.execute('INSERT INTO payment (total_amount, telegram_payment_charge_id, provider_payment_charge_id, otp, pass_id, payment_type, timestamp)\
+            VALUES (%s, %s, %s, %s, %s, %s)', (data['seat'], data['telegram_payment_charge_id'], data['provider_payment_charge_id'], data['otp'], data['pass_id'], data['payment_type'], datetime.datetime.now()))
         connection.commit()
-
-# async def successful_payment(message, otp, trips_left):
-#     # Ищем pass_id клиента 
-#     cursor.execute('SELECT id from passenger where telegram_id = %s', (message.from_user.id,))
-#     pass_id = cursor.fetchone()
-#     # Обновляем кол-во доступных поездок
-#     cursor.execute('UPDATE passenger SET trips_left = trips_left + %s, timestamp = %s WHERE id = %s', (trips_left, datetime.datetime.now(), pass_id))
-#     # Создаем запись о покупке
-#     cursor.execute('INSERT INTO payment (total_amount, telegram_payment_charge_id, provider_payment_charge_id, otp, passenger_id, timestamp)\
-#          VALUES (%s, %s, %s, %s, %s, %s)', (message.successful_payment.total_amount // 100,\
-#              message.successful_payment.telegram_payment_charge_id, message.successful_payment.provider_payment_charge_id, \
-#                  otp, pass_id, datetime.datetime.now()))
-#     connection.commit()
 
 async def is_driver_exist(message):
     cursor.execute('SELECT telegram_id from driver where telegram_id = %s', (message.from_user.id,))

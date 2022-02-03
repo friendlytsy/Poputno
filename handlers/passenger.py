@@ -1,15 +1,12 @@
-from subprocess import call
-from unittest import async_case
 from aiogram import Dispatcher, types
 from aiogram.dispatcher import FSMContext
 from aiogram.types.message import ContentType
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.dispatcher.filters import Text
-from sqlalchemy import null
 
 from create_bot import dp, bot
 from database import crimgo_db
-from keyboards import kb_pass, kb_driver, kb_path, kb_seat, kb_geoposition, kb_pp_confirmation, kb_trip_confirmation, kb_payment_type
+from keyboards import kb_pass, kb_pass_start, kb_driver, kb_path, kb_seat, kb_geoposition, kb_pp_confirmation, kb_trip_confirmation, kb_payment_type
 
 from random import randrange
 
@@ -22,25 +19,27 @@ class FSMOrder_trip(StatesGroup):
     s_pp_confirmation = State()
     s_trip_confirmation = State()
     s_payment_type = State()
-    # s_card_type = State()
-    # s_cash_type = State()
-    # s_checkout_query = State()
-    # s_cash_canceled = State()
-    # s_successful_payment = State()
-
+    
 # Старт и онбординг
 async def commands_start(message: types.Message):
     if (await crimgo_db.is_driver_exist(message) is not None):
         await message.reply('Добрый день', reply_markup=kb_driver)
 
-    else:    
-        await message.reply('Как пользоваться сервисом', reply_markup=kb_pass)
-        # If not exist, create a user
-        await crimgo_db.check_if_exist(message.from_user)
+    else:
+        if await crimgo_db.is_exist(message) is True:
+            await message.reply('Как пользоваться сервисом', reply_markup=kb_pass)
+        if await crimgo_db.is_exist(message) is False:          
+            await message.reply('Как пользоваться сервисом', reply_markup=kb_pass_start)
         await message.answer('https://teletype.in/@crimgo.ru/l1stoFUEQqF')
 
+# Обработка контакта
+async def get_contact(message: types.Message):
+    # If not exist, create a user
+    await crimgo_db.create_user(message)
+    await message.answer('Спасибо', reply_markup=kb_pass)
+
 # Чат поддержки
-async def cmd_contact_with_support(message:types.Message):
+async def cmd_contact_with_support(message: types.Message):
     await message.reply(message.text)
 
 # Покупка абонемента
@@ -61,16 +60,21 @@ async def menu_seat_selection(callback: types.CallbackQuery, state: FSMContext):
     await FSMOrder_trip.s_geolocation.set()
     async with state.proxy() as data:
             data['seat'] = callback.data
+            data['total_amount'] = int(data['seat'])*100
     await callback.message.answer(f'Вы выбрали {callback.data} мест')
     await callback.message.answer('Поделитесь геопозицией чтобы мы выбрали наиболее  близкое к вам место посадки', reply_markup=kb_geoposition)
     await callback.answer()
 
 # Геопозиция
 async def menu_pp_confirm(callback: types.CallbackQuery, state: FSMContext):
-    await FSMOrder_trip.s_pp_confirmation.set()
-    async with state.proxy() as data:
-            data['geo'] = callback.data
-    await callback.message.answer('Ближайшая к вам остановка №3 - Х, нажмите подтвердить', reply_markup=kb_pp_confirmation)
+    if callback.data == 'Передать геопозицию':
+        await FSMOrder_trip.s_pp_confirmation.set()
+        async with state.proxy() as data:
+                data['geo'] = callback.data
+        await callback.message.answer('Ближайшая к вам остановка №3 - Х, нажмите подтвердить', reply_markup=kb_pp_confirmation)
+    else:
+        await FSMOrder_trip.s_seat_selection.set()
+        await callback.message.answer('Выберете кол-во мест', reply_markup=kb_seat)
     await callback.answer()
 
 # Выбор остановки
@@ -83,18 +87,24 @@ async def menu_trip_confirm(callback: types.CallbackQuery, state: FSMContext):
 
 # Быбор способа оплаты
 async def menu_payment_type(callback: types.CallbackQuery, state: FSMContext):
-    await FSMOrder_trip.s_payment_type.set()
-    async with state.proxy() as data:
+    if callback.data == 'Ок':
+        await FSMOrder_trip.s_payment_type.set()
+        async with state.proxy() as data:
             data['trip_confirm'] = callback.data
-            seats = data['seat']
-    await callback.message.answer(f'Вы заказали {seats} мест, стоимость {int(seats)*100} рублей', reply_markup=kb_payment_type)
+        await callback.message.answer('Вы заказали {seat} мест, стоимость {total_amount} рублей'.format(seat = data['seat'], total_amount= data['total_amount']), reply_markup=kb_payment_type)
+    else:
+        await callback.message.answer('Заказ отменен')
+        await state.finish()
     await callback.answer()
 
 # Обработка способа оплаты и выбор соот-го состояния
-async def menu_handle_payment(callback: types.CallbackQuery, state: FSMContext):        
+async def menu_handle_payment(callback: types.CallbackQuery, state: FSMContext):          
+    await callback.answer()
+    # Оплата наличкой
     if callback.data == 'Наличкой водителю':
         # Добавляем пустые поля для оплаты наличкой
         async with state.proxy() as data:
+            data['payment_type'] = 'cash'
             data['telegram_payment_charge_id'] = 'null'
             data['provider_payment_charge_id'] = 'null'
             data['otp'] = randrange(1000, 9999, 1)
@@ -103,56 +113,67 @@ async def menu_handle_payment(callback: types.CallbackQuery, state: FSMContext):
         await crimgo_db.successful_payment(state)
         await callback.message.answer('Оплатите водтелю сумму `{total_amount}` РУБ при посадке! Приятного пользования сервисом CrimGo. Код для посадки `{otp}`'.format(
             total_amount=int(data['seat'])*100, otp=data['otp']))
+        
+        await state.finish()
 
-    await callback.answer()
+    # Оплата картой
+    if callback.data =='Оплата картой':
+        await cmd_card_payment(state, callback.message)
+
+# Функция оплаты картой
+async def cmd_card_payment(state: FSMContext, message: types.Message):
+    async with state.proxy() as data:
+            data['otp'] = randrange(1000, 9999, 1)
+
+    await message.reply('Покупка билета') 
+    if config.PAYMENTS_PROVIDER_TOKEN.split(':')[1] == 'TEST':
+                 await bot.send_message(message.chat.id, 'Тестовая покупа билета')
+
+    await bot.send_invoice(message.chat.id,
+                       title='Покупка билета',
+                       description=('Покупка {seat} билета(ов)'.format(seat=data['seat'])),
+                       provider_token=config.PAYMENTS_PROVIDER_TOKEN,
+                       currency='rub',
+                       photo_url=config.SHUTTLE_IMAGE_URL,
+                       photo_height=512,  # !=0/None, иначе изображение не покажется
+                       photo_width=512,
+                       photo_size=512,
+                       is_flexible=False,  # True если конечная цена зависит от способа доставки
+                       prices=[types.LabeledPrice(label='Билет(ы) на шаттл', amount=(int(data['total_amount'])*100))],
+                       start_parameter='shuttle-order-example',
+                       payload='some-invoice-payload-for-our-internal-use'
+                       )
+
+@dp.pre_checkout_query_handler(lambda query: True, state=FSMOrder_trip.s_payment_type)
+async def process_pre_checkout_query(pre_checkout_query: types.PreCheckoutQuery):
+    await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
+
+@dp.message_handler(content_types=ContentType.SUCCESSFUL_PAYMENT, state=FSMOrder_trip.s_payment_type)
+async def process_successful_payment(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        # Добавляем необходимые данные о платеже
+        data['payment_type'] = 'card'
+        data['total_amount'] = message.successful_payment.total_amount // 100
+        data['telegram_payment_charge_id'] = message.successful_payment.telegram_payment_charge_id
+        data['provider_payment_charge_id'] = message.successful_payment.provider_payment_charge_id
+        data['pass_id'] = message.from_user.id
+        
+        # Сообщение пользователю
+        await bot.send_message(
+            message.chat.id,
+            'Платеж на сумму `{total_amount} {currency}` совершен успешно! Приятного пользования сервисом CrimGo. Код для посадки `{otp}`'.format(
+            total_amount=data['total_amount'],
+            currency=message.successful_payment.currency,
+            otp=data['otp']
+            )
+        )
+    # Запись в БД и завершение FSM    
+    await crimgo_db.successful_payment(state)
     await state.finish()
-
-# Оплата картой
-#
-
-# # Покупка абонемента
-# async def cmd_subscription(message: types.Message):
-#     await message.reply('Покупка обонемента') 
-#     if config.PAYMENTS_PROVIDER_TOKEN.split(':')[1] == 'TEST':
-#                  await bot.send_message(message.chat.id, 'Тестовая покупа обонемента')
-
-#     await bot.send_invoice(message.chat.id,
-#                        title='Покупка обонемента',
-#                        description='Покупка обонемента на 12 поездок',
-#                        provider_token=config.PAYMENTS_PROVIDER_TOKEN,
-#                        currency='rub',
-#                        photo_url=config.SHUTTLE_IMAGE_URL,
-#                        photo_height=512,  # !=0/None, иначе изображение не покажется
-#                        photo_width=512,
-#                        photo_size=512,
-#                        is_flexible=False,  # True если конечная цена зависит от способа доставки
-#                        prices=[types.LabeledPrice(label='Билет на шаттл', amount=100000)],
-#                        start_parameter='shuttle-order-example',
-#                        payload='some-invoice-payload-for-our-internal-use'
-#                        )
-
-# @dp.pre_checkout_query_handler(lambda query: True)
-# async def process_pre_checkout_query(pre_checkout_query: types.PreCheckoutQuery):
-#     await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
-
-# #@dp.message_handler(content_types=ContentType.SUCCESSFUL_PAYMENT)
-# async def process_successful_payment(message: types.Message):
-#     otp=randrange(1000, 9999, 1)
-#     await bot.send_message(
-#         message.chat.id,
-#         'Платеж на сумму `{total_amount} {currency}` совершен успешно! Приятного пользования сервисом CrimGo. Код для посадки `{otp}`'.format(
-#         total_amount=message.successful_payment.total_amount // 100,
-#         currency=message.successful_payment.currency,
-#         otp=otp
-#         )
-#     )
-#     trips_left = 1
-#     if (message.successful_payment.total_amount // 100) == 1000:
-#         trips_left = 12
-#     await crimgo_db.successful_payment(message, otp, trips_left)
 
 def register_handlers_client(dp: Dispatcher):
     dp.register_message_handler(commands_start, commands=['start', 'help'])
+    dp.register_message_handler(get_contact, content_types=['contact'])
     dp.register_message_handler(cmd_order_trip, Text(equals='Заказать поездку', ignore_case=True))
     #dp.register_message_handler(cmd_subscription, Text(equals='Купить абонемент', ignore_case=True))
     dp.register_message_handler(cmd_contact_with_support, Text(equals='Чат поддержки', ignore_case=True))
@@ -162,6 +183,3 @@ def register_handlers_client(dp: Dispatcher):
     dp.register_callback_query_handler(menu_trip_confirm, state=FSMOrder_trip.s_pp_confirmation)
     dp.register_callback_query_handler(menu_payment_type, state=FSMOrder_trip.s_trip_confirmation)
     dp.register_callback_query_handler(menu_handle_payment, state=FSMOrder_trip.s_payment_type)
-    #dp.register_callback_query_handler(menu_card_payment, state=FSMOrder_trip.s_payment_type)
-    #dp.register_message_handler(process_pre_checkout_query, state = FSMOrder_trip.s_checkout_query)
-    #dp.register_message_handler(process_successful_payment, content_types=ContentType.SUCCESSFUL_PAYMENT)

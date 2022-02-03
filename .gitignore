@@ -2,3 +2,6 @@
 config/config.py
 handlers/__pycache__/passenger.cpython-38.pyc
 database/crimgo_db.py
+database/__pycache__/crimgo_db.cpython-38.pyc
+keyboards/__pycache__/__init__.cpython-38.pyc
+keyboards/__pycache__/pass_kb.cpython-38.pyc
