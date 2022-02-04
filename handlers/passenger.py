@@ -62,16 +62,19 @@ async def menu_seat_selection(callback: types.CallbackQuery, state: FSMContext):
             data['seat'] = callback.data
             data['total_amount'] = int(data['seat'])*100
     await callback.message.answer(f'Вы выбрали {callback.data} мест')
-    await callback.message.answer('Поделитесь геопозицией чтобы мы выбрали наиболее  близкое к вам место посадки', reply_markup=kb_geoposition)
+    if data['path'] == 'К морю':
+        await callback.message.answer('Выбирите наиболее  близкое к вам место посадки', reply_markup=kb_geoposition)
+    if data['path'] == 'От моря':
+        await callback.message.answer('Выбирите ближайшую остановку к Вашему дому', reply_markup=kb_geoposition)
     await callback.answer()
 
 # Геопозиция
 async def menu_pp_confirm(callback: types.CallbackQuery, state: FSMContext):
-    if callback.data == 'Передать геопозицию':
+    if callback.data != 'Назад':
         await FSMOrder_trip.s_pp_confirmation.set()
         async with state.proxy() as data:
                 data['geo'] = callback.data
-        await callback.message.answer('Ближайшая к вам остановка №3 - Х, нажмите подтвердить', reply_markup=kb_pp_confirmation)
+        await callback.message.answer('Вы выбрали остановку {pp}, нажмите подтвердить'.format(pp = data['geo']), reply_markup=kb_pp_confirmation)
     else:
         await FSMOrder_trip.s_seat_selection.set()
         await callback.message.answer('Выберете кол-во мест', reply_markup=kb_seat)
