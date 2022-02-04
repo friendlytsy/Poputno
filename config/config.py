@@ -7,6 +7,6 @@ DATABASE = {
     'host': 'localhost',
     'port': '5432',
     'username': 'postgres',
-    'password': 'postgres',
+    'password': 'et#$q9LNJfU*',
     'database': 'crimgo'
 }

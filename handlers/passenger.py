@@ -61,7 +61,7 @@ async def menu_seat_selection(callback: types.CallbackQuery, state: FSMContext):
     async with state.proxy() as data:
             data['seat'] = callback.data
             data['total_amount'] = int(data['seat'])*100
-    await callback.message.answer(f'Вы выбрали {callback.data} мест')
+    await callback.message.answer(f'Вы выбрали {callback.data} мест(а)')
     if data['path'] == 'К морю':
         await callback.message.answer('Выбирите наиболее  близкое к вам место посадки', reply_markup=kb_geoposition)
     if data['path'] == 'От моря':
@@ -94,7 +94,7 @@ async def menu_payment_type(callback: types.CallbackQuery, state: FSMContext):
         await FSMOrder_trip.s_payment_type.set()
         async with state.proxy() as data:
             data['trip_confirm'] = callback.data
-        await callback.message.answer('Вы заказали {seat} мест, стоимость {total_amount} рублей'.format(seat = data['seat'], total_amount= data['total_amount']), reply_markup=kb_payment_type)
+        await callback.message.answer('Вы заказали {seat} мест(а), стоимость {total_amount} рублей'.format(seat = data['seat'], total_amount= data['total_amount']), reply_markup=kb_payment_type)
     else:
         await callback.message.answer('Заказ отменен')
         await state.finish()
@@ -114,7 +114,7 @@ async def menu_handle_payment(callback: types.CallbackQuery, state: FSMContext):
             data['pass_id'] = callback.from_user.id
 
         await crimgo_db.successful_payment(state)
-        await callback.message.answer('Оплатите водтелю сумму `{total_amount}` РУБ при посадке! Приятного пользования сервисом CrimGo. Код для посадки `{otp}`'.format(
+        await callback.message.answer('Оплатите водителю сумму `{total_amount}` РУБ при посадке! Приятного пользования сервисом CrimGo. Код для посадки `{otp}`'.format(
             total_amount=int(data['seat'])*100, otp=data['otp']))
         
         await state.finish()
