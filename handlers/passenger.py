@@ -12,6 +12,7 @@ from random import randrange
 
 from config import config
 
+# Машина состояний для покупки билета
 class FSMOrder_trip(StatesGroup):
     s_path_selection = State()
     s_seat_selection = State()
@@ -19,7 +20,12 @@ class FSMOrder_trip(StatesGroup):
     s_pp_confirmation = State()
     s_trip_confirmation = State()
     s_payment_type = State()
-    
+
+# Машина состояний для покупки абонемента
+class FSMOrder_subscribe(StatesGroup):
+    s_payment_subscribe = State()
+
+
 # Старт и онбординг
 async def commands_start(message: types.Message):
     if (await crimgo_db.is_driver_exist(message) is not None):
@@ -43,6 +49,61 @@ async def cmd_contact_with_support(message: types.Message):
     await message.reply(message.text)
 
 # Покупка абонемента
+async def cmd_subscription(message: types.Message, state: FSMContext):
+    await FSMOrder_subscribe.s_payment_subscribe.set()
+    await message.answer('Покупка абонемента на 10 поездок.', reply_markup=kb_pass)
+    async with state.proxy() as data:
+            data['otp'] = randrange(1000, 9999, 1)
+            data['seat'] = '12'
+            data['total_amount'] = '1000'
+    await message.reply('Покупка абонемента') 
+    if config.PAYMENTS_PROVIDER_TOKEN.split(':')[1] == 'TEST':
+                 await bot.send_message(message.chat.id, 'Тестовая покупа')
+
+    await bot.send_invoice(message.chat.id,
+                       title='Покупка обонемента',
+                       description=('Покупка {seat} билета(ов)'.format(seat=data['seat'])),
+                       provider_token=config.PAYMENTS_PROVIDER_TOKEN,
+                       currency='rub',
+                       photo_url=config.SHUTTLE_IMAGE_URL,
+                       photo_height=512,  # !=0/None, иначе изображение не покажется
+                       photo_width=512,
+                       photo_size=512,
+                       is_flexible=False,  # True если конечная цена зависит от способа доставки
+                       prices=[types.LabeledPrice(label='Билет(ы) на шаттл', amount=(int(data['total_amount'])*100))],
+                       start_parameter='shuttle-order-example',
+                       payload='some-invoice-payload-for-our-internal-use'
+                       )
+
+@dp.pre_checkout_query_handler(lambda query: True, state=FSMOrder_subscribe.s_payment_subscribe)
+async def process_pre_checkout_query(pre_checkout_query: types.PreCheckoutQuery):
+    await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
+
+@dp.message_handler(content_types=ContentType.SUCCESSFUL_PAYMENT, state=FSMOrder_subscribe.s_payment_subscribe)
+async def process_successful_payment(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        # Добавляем необходимые данные о платеже
+        data['payment_type'] = 'card'
+        data['total_amount'] = message.successful_payment.total_amount // 100
+        data['telegram_payment_charge_id'] = message.successful_payment.telegram_payment_charge_id
+        data['provider_payment_charge_id'] = message.successful_payment.provider_payment_charge_id
+        data['pass_id'] = message.from_user.id
+        
+        # Сообщение пользователю
+        await bot.send_message(
+            message.chat.id,
+            'Платеж на сумму `{total_amount} {currency}` совершен успешно! Приятного пользования сервисом CrimGo. Код для посадки `{otp}`'.format(
+            total_amount=data['total_amount'],
+            currency=message.successful_payment.currency,
+            otp=data['otp']
+            )
+        )
+    # Запись в БД и завершение FSM    
+    await crimgo_db.successful_payment(state)
+    await state.finish()
+
+
+# Покупка билета
 async def cmd_order_trip(message: types.Message):
     await FSMOrder_trip.s_path_selection.set()
     await message.answer('Среденее время ожидания начала поездки 20 минут. Более точное время будет известно позже.', reply_markup=kb_path) 
@@ -130,7 +191,7 @@ async def cmd_card_payment(state: FSMContext, message: types.Message):
 
     await message.reply('Покупка билета') 
     if config.PAYMENTS_PROVIDER_TOKEN.split(':')[1] == 'TEST':
-                 await bot.send_message(message.chat.id, 'Тестовая покупа билета')
+                 await bot.send_message(message.chat.id, 'Тестовая покупа')
 
     await bot.send_invoice(message.chat.id,
                        title='Покупка билета',
@@ -178,7 +239,7 @@ def register_handlers_client(dp: Dispatcher):
     dp.register_message_handler(commands_start, commands=['start', 'help'])
     dp.register_message_handler(get_contact, content_types=['contact'])
     dp.register_message_handler(cmd_order_trip, Text(equals='Заказать поездку', ignore_case=True))
-    #dp.register_message_handler(cmd_subscription, Text(equals='Купить абонемент', ignore_case=True))
+    dp.register_message_handler(cmd_subscription, Text(equals='Купить абонемент', ignore_case=True))
     dp.register_message_handler(cmd_contact_with_support, Text(equals='Чат поддержки', ignore_case=True))
     dp.register_callback_query_handler(menu_path_selection, state=FSMOrder_trip.s_path_selection)
     dp.register_callback_query_handler(menu_seat_selection, state=FSMOrder_trip.s_seat_selection)
