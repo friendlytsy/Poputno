@@ -56,6 +56,7 @@ async def successful_payment(state):
     async with state.proxy() as data:
         cursor.execute('INSERT INTO payment (total_amount, telegram_payment_charge_id, provider_payment_charge_id, otp, pass_id, payment_type, timestamp)\
             VALUES (%s, %s, %s, %s, %s, %s, %s)', (data['seat'], data['telegram_payment_charge_id'], data['provider_payment_charge_id'], data['otp'], data['pass_id'], data['payment_type'], datetime.datetime.now()))
+        cursor.execute('UPDATE passenger SET (available_trips, timestamp) = (available_trips + %s, %s) WHERE telegram_id = %s', (data['seat'], datetime.datetime.now(), data['pass_id']))
         connection.commit()
 
 # Проверка существует водитель в БД
