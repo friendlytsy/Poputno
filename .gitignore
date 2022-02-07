@@ -1,20 +1,4 @@
 
 config/config.py
-handlers/__pycache__/passenger.cpython-38.pyc
-database/crimgo_db.py
-database/__pycache__/crimgo_db.cpython-38.pyc
-keyboards/__pycache__/__init__.cpython-38.pyc
-keyboards/__pycache__/pass_kb.cpython-38.pyc
-__pycache__/create_bot.cpython-38.pyc
-config/__pycache__/__init__.cpython-38.pyc
-config/__pycache__/config.cpython-38.pyc
-database/__pycache__/crimgo_db.cpython-38.pyc
-handlers/__pycache__/__init__.cpython-38.pyc
-handlers/__pycache__/admin.cpython-38.pyc
+*.pyc
 .gitignore
-handlers/__pycache__/passenger.cpython-38.pyc
-keyboards/__pycache__/__init__.cpython-38.pyc
-keyboards/__pycache__/admin_kb.cpython-38.pyc
-keyboards/__pycache__/driver_kb.cpython-38.pyc
-keyboards/__pycache__/pass_kb.cpython-38.pyc
-
