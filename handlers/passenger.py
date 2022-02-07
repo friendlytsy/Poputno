@@ -27,9 +27,9 @@ async def commands_start(message: types.Message):
 
     else:
         if await crimgo_db.is_exist(message) is True:
-            await message.reply('Как пользоваться сервисом', reply_markup=kb_pass)
+            await message.reply('На данный момент работает заказ одноразовой поездки от Моря и к Морю. А так же регистрация водителя и шаттла.', reply_markup=kb_pass)
         if await crimgo_db.is_exist(message) is False:          
-            await message.reply('Как пользоваться сервисом', reply_markup=kb_pass_start)
+            await message.reply('На данный момент работает заказ одноразовой поездки от Моря и к Морю. А так же регистрация водителя и шаттла. Как пользоваться сервисом', reply_markup=kb_pass_start)
         await message.answer('https://teletype.in/@crimgo.ru/l1stoFUEQqF')
 
 # Обработка контакта

@@ -73,7 +73,7 @@ async def is_driver_valid(state, message):
         drv_phone = cursor.fetchone()
     # Если есть, то обновляем данные
     if drv_phone is not None:
-        cursor.execute('UPDATE driver SET (telegram_name, telegram_id, timestamp) = (%s, %s, %s) WHERE phone = %s', (message.from_user.username, message.from_user.id, drv_phone, datetime.datetime.now()))
+        cursor.execute('UPDATE driver SET (telegram_name, telegram_id, timestamp) = (%s, %s, %s) WHERE phone = %s', (message.from_user.username, message.from_user.id, datetime.datetime.now(), drv_phone))
         connection.commit()
         is_validated = True
     return is_validated
