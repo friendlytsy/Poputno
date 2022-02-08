@@ -78,3 +78,25 @@ async def is_driver_valid(state, message):
         connection.commit()
         is_validated = True
     return is_validated
+
+# Привзяка шаттла к водителю
+async def bind_shuttle_to_driver(message):
+    # Ищем шаттл по имени
+    try:
+        cursor.execute('UPDATE driver SET (on_shuttle, timestamp) = ((SELECT id from shuttle where name = %s), %s ) WHERE telegram_id = %s', (str(message.text), datetime.datetime.now(), message.from_user.id))
+        connection.commit()
+        return True
+    except Exception as err:
+        print(err)
+        return False
+
+async def is_on_shift(message):
+    # Проверяем находится ли водитель в смене 
+    try:
+        cursor.execute('SELECT on_shuttle FROM driver where telegram_id = %s', (message.from_user.id,))
+        on_shuttle = cursor.fetchone()
+        if on_shuttle is not None: # Если в поле on_shit есть id шаттла
+            return True
+    except Exception as err:
+        print(err)
+        return False

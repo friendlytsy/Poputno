@@ -84,7 +84,7 @@ async def input_shuttle_name(message: types.Message, state: FSMContext):
         await FSMShuttleReg.s_capacity.set()
         await message.reply('Введите вместительнось шаттла')
 
-# Обработка телефона и запись в БД
+# Обработка вместительности и запись в БД
 async def input_shuttle_capacity(message: types.Message, state: FSMContext):
     if message.from_user.id == ID:
         async with state.proxy() as data:

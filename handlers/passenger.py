@@ -6,7 +6,7 @@ from aiogram.dispatcher.filters import Text
 
 from create_bot import dp, bot
 from database import crimgo_db
-from keyboards import kb_pass, kb_pass_start, kb_driver, kb_path, kb_seat, kb_geoposition, kb_pp_confirmation, kb_trip_confirmation, kb_payment_type
+from keyboards import kb_pass, kb_pass_start, kb_driver, kb_path, kb_seat, kb_geoposition, kb_pp_confirmation, kb_trip_confirmation, kb_payment_type, kb_driver_shift
 
 from random import randrange
 
@@ -29,7 +29,10 @@ class FSMOrder_subscribe(StatesGroup):
 # Старт и онбординг
 async def commands_start(message: types.Message):
     if (await crimgo_db.is_driver_exist(message) is not None):
-        await message.reply('Добрый день', reply_markup=kb_driver)
+        if (await crimgo_db.is_on_shift(message)): # если есть привязанный шаттл
+            await message.reply('Добрый день', reply_markup=kb_driver_shift)
+        else: 
+            await message.reply('Добрый день', reply_markup=kb_driver)
 
     else:
         if await crimgo_db.is_exist(message) is True:
