@@ -9,9 +9,11 @@ async def on_startup(_):
 from handlers import admin
 from handlers import passenger
 from handlers import driver
+from handlers import driver_shift
 
 admin.register_handlers_admin(dp)
 passenger.register_handlers_client(dp)
 driver.register_handlers_driver(dp)
+driver_shift.register_handlers_driver_on_shift(dp)
 
 executor.start_polling(dp, skip_updates=True, on_startup=on_startup)

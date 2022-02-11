@@ -6,7 +6,8 @@ from aiogram.dispatcher.filters import Text
 
 from create_bot import dp, bot
 from database import crimgo_db
-from keyboards import kb_pass, kb_pass_start, kb_driver, kb_path, kb_seat, kb_geoposition, kb_pp_confirmation, kb_trip_confirmation, kb_payment_type, kb_driver_shift
+from keyboards import kb_pass, kb_driver, kb_path, kb_seat, kb_geoposition, kb_pp_confirmation, kb_trip_confirmation, kb_payment_type, kb_driver_shift, kb_generic_start, kb_driver_verification
+
 
 from random import randrange
 
@@ -14,7 +15,7 @@ from config import config
 
 # Машина состояний для покупки билета
 class FSMOrder_trip(StatesGroup):
-    s_path_selection = State()
+    s_route_selection = State()
     s_seat_selection = State()
     s_geolocation = State()
     s_pp_confirmation = State()
@@ -25,20 +26,24 @@ class FSMOrder_trip(StatesGroup):
 class FSMOrder_subscribe(StatesGroup):
     s_payment_subscribe = State()
 
-
 # Старт и онбординг
 async def commands_start(message: types.Message):
+    # Проверка на водителя
     if (await crimgo_db.is_driver_exist(message) is not None):
-        if (await crimgo_db.is_on_shift(message)): # если есть привязанный шаттл
-            await message.reply('Добрый день', reply_markup=kb_driver_shift)
-        else: 
-            await message.reply('Добрый день', reply_markup=kb_driver)
-
+        # Если валиден
+        if (await crimgo_db.is_driver_valid(message) is True):
+            # То проверка на смену
+            if (await crimgo_db.is_on_shift(message)): 
+                await message.reply('Добрый день', reply_markup=kb_driver_shift)
+            else: 
+                await message.reply('Добрый день', reply_markup=kb_driver)
+        
+    # Проверка на пользователя
     else:
         if await crimgo_db.is_exist(message) is True:
             await message.reply('На данный момент работает заказ одноразовой поездки от Моря и к Морю. А так же регистрация водителя и шаттла.', reply_markup=kb_pass)
         if await crimgo_db.is_exist(message) is False:          
-            await message.reply('На данный момент работает заказ одноразовой поездки от Моря и к Морю. А так же регистрация водителя и шаттла. Как пользоваться сервисом', reply_markup=kb_pass_start)
+            await message.reply('На данный момент работает заказ одноразовой поездки от Моря и к Морю. А так же регистрация водителя и шаттла. Как пользоваться сервисом', reply_markup=kb_generic_start)
         await message.answer('https://teletype.in/@crimgo.ru/l1stoFUEQqF')
 
 # Обработка контакта
@@ -105,19 +110,28 @@ async def process_successful_payment(message: types.Message, state: FSMContext):
     await crimgo_db.successful_payment(state)
     await state.finish()
 
-
 # Покупка билета
 async def cmd_order_trip(message: types.Message):
-    await FSMOrder_trip.s_path_selection.set()
+    await FSMOrder_trip.s_route_selection.set()
     await message.answer('Среденее время ожидания начала поездки 20 минут. Более точное время будет известно позже.', reply_markup=kb_path) 
 
 # Выбор маршрута
-async def menu_path_selection(callback: types.CallbackQuery, state: FSMContext):
+async def menu_route_selection(callback: types.CallbackQuery, state: FSMContext):
     await FSMOrder_trip.s_seat_selection.set()
     async with state.proxy() as data:
-            data['path'] = callback.data
-    await callback.message.answer('Выберете кол-во мест', reply_markup=kb_seat)
-    await callback.answer()
+            data['route'] = callback.data
+    # если нет path с указаным маршрутом, создаем его
+    if (await crimgo_db.is_trip_with_route(state) is not True):
+        trip_id = await crimgo_db.create_trip(state)
+        if (trip_id is False):
+            await callback.message.answer('Сервис временно не доступен, попробуйте позже')
+            await callback.answer()
+            await state.finish()
+        else:
+            async with state.proxy() as data:
+                data['trip_id'] = trip_id
+            await callback.message.answer('Выберете кол-во мест', reply_markup=kb_seat)
+            await callback.answer()
 
 # Выбор кол-ва мест
 async def menu_seat_selection(callback: types.CallbackQuery, state: FSMContext):
@@ -125,12 +139,15 @@ async def menu_seat_selection(callback: types.CallbackQuery, state: FSMContext):
     async with state.proxy() as data:
             data['seat'] = callback.data
             data['total_amount'] = int(data['seat'])*100
-    await callback.message.answer(f'Вы выбрали {callback.data} мест(а)')
-    if data['path'] == 'К морю':
-        await callback.message.answer('Выбирите наиболее  близкое к вам место посадки', reply_markup=kb_geoposition)
-    if data['path'] == 'От моря':
-        await callback.message.answer('Выбирите ближайшую остановку к Вашему дому', reply_markup=kb_geoposition)
-    await callback.answer()
+    
+    # Проверка на кол-во доступных мест
+    if (await crimgo_db.seat_availability(state)) is True:
+        await callback.message.answer(f'Вы выбрали {callback.data} мест(а)')
+        if data['route'] == 'К морю':
+            await callback.message.answer('Выбирите наиболее  близкое к вам место посадки', reply_markup=kb_geoposition)
+        if data['route'] == 'От моря':
+            await callback.message.answer('Выбирите ближайшую остановку к Вашему дому', reply_markup=kb_geoposition)
+        await callback.answer()
 
 # Геопозиция
 async def menu_pp_confirm(callback: types.CallbackQuery, state: FSMContext):
@@ -244,7 +261,7 @@ def register_handlers_client(dp: Dispatcher):
     dp.register_message_handler(cmd_order_trip, Text(equals='Заказать поездку', ignore_case=True))
     dp.register_message_handler(cmd_subscription, Text(equals='Купить абонемент', ignore_case=True))
     dp.register_message_handler(cmd_contact_with_support, Text(equals='Чат поддержки', ignore_case=True))
-    dp.register_callback_query_handler(menu_path_selection, state=FSMOrder_trip.s_path_selection)
+    dp.register_callback_query_handler(menu_route_selection, state=FSMOrder_trip.s_route_selection)
     dp.register_callback_query_handler(menu_seat_selection, state=FSMOrder_trip.s_seat_selection)
     dp.register_callback_query_handler(menu_pp_confirm, state=FSMOrder_trip.s_geolocation)
     dp.register_callback_query_handler(menu_trip_confirm, state=FSMOrder_trip.s_pp_confirmation)
