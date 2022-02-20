@@ -28,18 +28,19 @@ async def cmd_get_menu(message: types.Message):
     await bot.send_message(message.from_user.id, 'Что надо хозяин?', reply_markup=kb_admin)
     await message.delete()
 
-# Запрос имени водителя
+# Запрос телефона водителя
 async def cmd_driver_validate(message: types.Message):
     if message.from_user.id == ID:
         await FSMDriverReg.s_phone.set()
         await message.reply('Введите номер телефона в формате 79876543210', reply_markup=ReplyKeyboardRemove()) 
 
-# Обработка телефона и запись в БД
+# Обработка телефона
 async def input_phone(message: types.Message, state: FSMContext):
     if message.from_user.id == ID:
-        driver_otp = (await crimgo_db.get_driver_otp(message))
-        if driver_otp is not None or False:
-            await message.reply('Пароль для валидации водителя:{otp}'.format(otp = driver_otp), reply_markup=kb_admin)
+        driver_phone = (await crimgo_db.get_driver_phone(message))
+        if driver_phone is not None or False:
+            await crimgo_db.validate_driver(driver_phone)
+            await message.reply('Водитель зарегестрирован', reply_markup=kb_admin)
         else:
             await message.answer('Произошла ошбика, попробуйте позже', reply_markup=kb_admin)
         await state.finish()

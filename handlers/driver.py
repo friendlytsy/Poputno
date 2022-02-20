@@ -11,9 +11,6 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 
 from random import randrange
 
-class FSMValidateDriver(StatesGroup):
-    s_input_otp = State()
-
 class FSMRegisterDriver(StatesGroup):
     s_share_name = State()
     s_share_contact = State()
@@ -33,7 +30,7 @@ async def cmd_get_driver_menu(message: types.Message):
                 await message.reply('Добрый день', reply_markup=kb_driver)
         # То предлагаем пройти валидацию
         else: 
-            await message.reply('Необходимо пройти верификацию', reply_markup=kb_driver_verification)
+            await message.reply('Ожидается верификация админом', reply_markup=kb_driver_verification)
 
 # Обработка имени
 async def get_driver_name(message: types.Message, state: FSMContext):
@@ -52,24 +49,8 @@ async def get_driver_contact(message: types.Message, state: FSMContext):
         await message.answer('Произошла ошбика, попробуйте позже', reply_markup=kb_generic_start)
     await state.finish()
 
-# Верификация водителя по паролю
-async def start_validate_driver(message: types.Message):
-    await FSMValidateDriver.s_input_otp.set()
-    await message.reply('Введите пароль для валидации', reply_markup=ReplyKeyboardRemove())
-
-async def do_validate_driver(message: types.Message, state: FSMContext):
-    await crimgo_db.validate_driver_otp(message)
-    if (await crimgo_db.is_driver_valid(message)) is True:
-        await message.reply('Валидация успешно прийдена', reply_markup=kb_driver)
-    else:
-        await message.answer('Произошла ошбика, попробуйте позже', reply_markup=kb_driver_verification)
-    await state.finish()
-
-
 def register_handlers_driver(dp: Dispatcher):
     dp.register_message_handler(cmd_get_driver_menu, Text(equals='Водитель', ignore_case=False))
     dp.register_message_handler(get_driver_name, state = FSMRegisterDriver.s_share_name)
     dp.register_message_handler(get_driver_contact, content_types=['contact'], state = FSMRegisterDriver.s_share_contact)
-    dp.register_message_handler(start_validate_driver, Text(equals='Пройти верификацию', ignore_case=False))
-    dp.register_message_handler(do_validate_driver, state=FSMValidateDriver.s_input_otp)
     

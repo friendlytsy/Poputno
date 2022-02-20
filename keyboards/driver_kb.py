@@ -1,7 +1,7 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
 # Пройти верификацию
-btn_verification = KeyboardButton('Пройти верификацию')
+btn_verification = KeyboardButton('Ожидайте верификацию')
 kb_driver_verification = ReplyKeyboardMarkup(resize_keyboard=True)
 kb_driver_verification.add(btn_verification)
 
@@ -21,8 +21,8 @@ kb_driver.row(btn_start_shift).add(btn_contact_support)
 
 # s_start_point = State()
 kb_start_point = InlineKeyboardMarkup()
-btn_point_1 = InlineKeyboardButton(text = 'Остановка №1', callback_data='Остановка №1')
-btn_point_7 = InlineKeyboardButton(text = 'Остановка №7', callback_data='Остановка №7')
+btn_point_1 = InlineKeyboardButton(text = '№1 Шале', callback_data='№1 Шале')
+btn_point_7 = InlineKeyboardButton(text = '№7 Море', callback_data='№7 Море')
 kb_start_point.add(btn_point_1).add(btn_point_7)
 
 # s_awaiting_path = State()
@@ -30,6 +30,14 @@ kb_awaiting_trip = InlineKeyboardMarkup()
 
 # s_awaiting_pass = State()
 # s_start_path = State()
+kb_start_trip = InlineKeyboardMarkup()
+btn_start_trip = InlineKeyboardButton(text = 'Начать рейс', callback_data='Начать рейс')
+kb_start_trip.add(btn_start_trip)
+
 # s_onboarding = State()
+kb_onboarding_trip = InlineKeyboardMarkup()
+btn_onboarding_trip = InlineKeyboardButton(text = 'Посадка', callback_data='Посадка')
+kb_onboarding_trip.add(btn_onboarding_trip)
+
 # s_verify_code = State()
 # s_path_finished = State()
