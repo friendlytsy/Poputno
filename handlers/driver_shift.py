@@ -54,12 +54,14 @@ async def cmd_start_trip(callback: types.CallbackQuery):
     # Получить словарь билетов на рейс
     tickets = await crimgo_db.get_dict_of_tickets_by_driver(callback.from_user.id)
     text = ''
+    pointer = '->'
     for i in tickets:
-        # await callback.message.answer('Ост. {pp}, {time}, {seats}м'.format(pp = i[0], time = (i[2] + config.TIME_OFFSET).strftime("%H:%M"), seats = i[1]), reply_markup=kb_driver_shift)
+        # Собираем остановки в одно сообщение
         text = text + 'Ост. {pp}, {time}, {seats}м\n'.format(pp = i[0], time = (i[2] + config.TIME_OFFSET).strftime("%H:%M"), seats = i[1])
+    # Отобразить кнопку посадка
     await callback.message.answer(text, reply_markup=kb_onboarding_trip)
     await callback.answer()
-    # Отобразить кнопку посадка
+    
     # Поменять местоположение шаттла
 
 async def cmd_stop_shift(message: types.Message):

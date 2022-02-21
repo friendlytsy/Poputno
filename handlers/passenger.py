@@ -232,20 +232,23 @@ async def menu_handle_payment(callback: types.CallbackQuery, state: FSMContext):
                 await crimgo_db.set_shuttle_message_id(msg.message_id, state)
                 await crimgo_db.save_message_id_and_text(state, text)
             else:
-                # Нотификация о новых билетах
+                # Нотификация водителя о новых билетах
                 tmp = await crimgo_db.get_message_id_and_text(state)
                 text = tmp + '\nОст. {pickup_point}, {pickup_time}, {seats}м'.format(pickup_point = data['geo'], pickup_time = data['aprox_time'], seats = data['seat'])
                 await bot.edit_message_text(chat_id = driver_chat_id[0], message_id = driver_chat_id[1], text = text, reply_markup=kb_start_trip)
                 await crimgo_db.save_message_id_and_text(state, text)
-                # Проверка статуса рейса
+                # Проверка статуса рейса и отправка нотификации водителю об изменении начала рейса
                 status = await crimgo_db.trip_status(state)
                 if status == 'scheduled':
                     start_time = await crimgo_db.get_trip_start_time_by_id(state)
                     tickets = await crimgo_db.get_dict_of_tickets_by_trip(state)
                     text = 'Внимение, время начало рейса обновлено: {start_time}\n'.format(start_time = (start_time + config.TIME_OFFSET).strftime("%H:%M"))
+                    # Собираем остановки в одно сообщение
                     for i in tickets:
                         text = text + 'Ост. {pp}, {time}, {seats}м\n'.format(pp = i[0], time = (i[2] + config.TIME_OFFSET).strftime("%H:%M"), seats = i[1])
+                    # Редактируем последее сообщение
                     await bot.edit_message_text(chat_id = driver_chat_id[0], message_id = driver_chat_id[1], text = text, reply_markup=kb_onboarding_trip)
+        
         await state.finish()
 
     # Оплата картой
