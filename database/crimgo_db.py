@@ -1,4 +1,4 @@
-from telnetlib import EC
+from click import command
 import psycopg2
 import datetime
 
@@ -321,7 +321,7 @@ async def set_shuttle_message_id(message_id, state):
 
 async def get_dict_of_tickets_by_driver(from_user_id):
     try:
-        cursor.execute('SELECT p.name, booked_seats, final_pickup_time FROM ticket AS t, pickup_point AS p WHERE t.pickup_point = p.id AND trip_id = (SELECT id FROM trip WHERE shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s)) ORDER BY final_pickup_time', (from_user_id,))
+        cursor.execute('SELECT p.name, booked_seats, final_pickup_time, p.id FROM ticket AS t, pickup_point AS p WHERE t.pickup_point = p.id AND trip_id = (SELECT id FROM trip WHERE shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s)) ORDER BY final_pickup_time', (from_user_id,))
         tickets = cursor.fetchall()
         return tickets
     except Exception as err:
@@ -374,3 +374,59 @@ async def get_trip_start_time_by_id(state):
     except Exception as err:
         print(err)
         return False
+
+async def get_shuttle_position(callback):
+    try:
+        cursor.execute('SELECT current_position FROM shuttle WHERE driver_id = %s', (callback.from_user.id,))
+        current_position = cursor.fetchone()[0]
+        return current_position
+    except Exception as err:
+        print(err)
+
+async def set_shuttle_position(callback):
+    # Берем список точек посадки
+    cursor.execute('SELECT pickup_point FROM ticket WHERE trip_id = (SELECT id FROM trip where shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s)) ORDER BY final_pickup_time', (callback.from_user.id, ))
+    # pickup_point_list = cursor.fetchall()
+    pickup_point_list = [item[0] for item in cursor.fetchall()]
+
+    # Позиция шаттла
+    cursor.execute('SELECT current_position FROM shuttle WHERE driver_id = %s', (callback.from_user.id,))
+    shuttle_possition = cursor.fetchone()
+    if shuttle_possition[0] == 1:
+        index = pickup_point_list.index(shuttle_possition[0])
+        cursor.execute('UPDATE shuttle SET current_position = %s WHERE driver_id = %s', (pickup_point_list[index +1], callback.from_user.id))
+        connection.commit()
+        
+    # Если шаттл на начальной точке, меняем позицию на первую из pickup_point_list
+    # if shuttle_possition[0] == 1:
+    #     cursor.execute('UPDATE shuttle SET current_position = %s WHERE driver_id = %s', (pickup_point_list[0][0], callback.from_user.id))
+    #     connection.commit()
+    # # В противном случае, ищем индекс входжения позиции шатла в pickup_point_list и меняем позицию на индекс вхождения + 1
+    # else:
+    #     index = pickup_point_list.index(shuttle_possition)
+    #     cursor.execute('UPDATE shuttle SET current_position = %s WHERE driver_id = %s', (pickup_point_list[index +1][0], callback.from_user.id))
+    #     connection.commit()
+    
+async def set_trip_status(callback, status):
+    try:
+        cursor.execute('UPDATE trip SET status = %s WHERE status = \'scheduled\' AND shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s)', (status, callback.from_user.id))
+        connection.commit()
+    except Exception as err:
+        print(err)
+
+async def verify_pass_code(message, code):
+    # Позиция шаттла
+    cursor.execute('SELECT current_position FROM shuttle WHERE driver_id = %s', (message.from_user.id,))
+    shuttle_position = cursor.fetchone()[0]
+    # Ищем пас ID и забронированые места
+    cursor.execute('SELECT p.pass_id, t.booked_seats FROM payment AS p, ticket AS t WHERE p.id = (SELECT payment_id FROM ticket WHERE use = False AND otp = %s AND trip_id = (SELECT id FROM trip WHERE shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s))) AND p.id = t.payment_id', (code, message.from_user.id))
+    pass_id_seats = cursor.fetchone()
+    # Гасим билет и отнимаем поедку
+    cursor.execute('UPDATE ticket SET use = True WHERE use = False AND pickup_point = %s AND trip_id = (SELECT id FROM trip where shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s)) AND booked_seats = %s AND otp = %s', (shuttle_position, message.from_user.id, pass_id_seats[1], code))
+    if cursor.rowcount == 1:
+        cursor.execute('UPDATE passenger SET available_trips = available_trips - %s WHERE telegram_id = %s', (pass_id_seats[1], pass_id_seats[0]))
+        if cursor.rowcount == 1:
+            connection.commit()
+            return True
+    # connection.rollback()
+    return False

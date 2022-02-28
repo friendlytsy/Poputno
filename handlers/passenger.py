@@ -247,7 +247,7 @@ async def menu_handle_payment(callback: types.CallbackQuery, state: FSMContext):
                     for i in tickets:
                         text = text + 'Ост. {pp}, {time}, {seats}м\n'.format(pp = i[0], time = (i[2] + config.TIME_OFFSET).strftime("%H:%M"), seats = i[1])
                     # Редактируем последее сообщение
-                    await bot.edit_message_text(chat_id = driver_chat_id[0], message_id = driver_chat_id[1], text = text, reply_markup=kb_onboarding_trip)
+                    await bot.edit_message_text(chat_id = driver_chat_id[0], message_id = driver_chat_id[1], text = text, reply_markup=kb_start_trip)
         
         await state.finish()
 
