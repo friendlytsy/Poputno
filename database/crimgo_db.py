@@ -1,6 +1,7 @@
-from click import command
 import psycopg2
 import datetime
+
+import database.crimgo_db_management as crimgo_db_management
 
 from psycopg2 import Error
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
@@ -12,7 +13,6 @@ def crimgo_db_start():
     try:
         # Подключение к существующей базе данных
         connection = psycopg2.connect(user = config.DATABASE['username'],
-                                      # пароль, который указали при установке PostgreSQL
                                       password = config.DATABASE['password'],
                                       host = config.DATABASE['host'],
                                       port = config.DATABASE['port'],
@@ -22,6 +22,7 @@ def crimgo_db_start():
         cursor = connection.cursor()
         if connection:
             print('Подключен к БД')
+            crimgo_db_management.crimgo_check_tables(cursor, connection)
 
     except (Exception, Error) as error:
         print("Ошибка при работе с PostgreSQL", error)
