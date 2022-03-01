@@ -38,13 +38,5 @@ STP_TRVL_TIME = timedelta(minutes = 3)
 # Общее время в пути без остановок
 TRVL_TIME = timedelta(minutes = 10)
 
-#StrtPnt
-#Стартовая точка
-#1
-
-#FinPnt
-#Финальная точка
-#7
-
 
 
