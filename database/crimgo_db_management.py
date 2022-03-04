@@ -46,3 +46,4 @@ def crimgo_check_tables(cursor, connection):
         print('Готово')
     except (Exception, Error) as error:
         print("Ошибка при работе с PostgreSQL", error)
+        
