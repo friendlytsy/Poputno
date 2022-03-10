@@ -3,4 +3,5 @@ config/config.py
 *.pyc
 .gitignore
 nohup.out
-config/config.py
+
+
