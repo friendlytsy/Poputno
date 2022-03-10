@@ -31,7 +31,7 @@ btn_pp_2 = InlineKeyboardButton(text = '№2 Шато', callback_data='№2 Ша
 btn_pp_3 = InlineKeyboardButton(text = '№3', callback_data='№3')
 btn_pp_4 = InlineKeyboardButton(text = '№4 Ривьера', callback_data='№4 Ривьера')
 btn_pp_5 = InlineKeyboardButton(text = '№5', callback_data='№5')
-btn_pp_6 = InlineKeyboardButton(text = '№6 ', callback_data='№6')
+btn_pp_6 = InlineKeyboardButton(text = '№6', callback_data='№6')
 btn_pp_7 = InlineKeyboardButton(text = '№7 Море', callback_data='№7 Море')
 btn_cancel_gp = InlineKeyboardButton(text = 'Назад', callback_data='Назад')
 kb_geoposition.add(btn_pp_1).add(btn_pp_2).add(btn_pp_3).add(btn_pp_4).add(btn_pp_5).add(btn_pp_6).add(btn_pp_7).add(btn_cancel_gp)

@@ -1,5 +1,3 @@
-from subprocess import call
-from tracemalloc import start
 from aiogram import Dispatcher, types
 from aiogram.dispatcher import FSMContext
 from aiogram.types.message import ContentType
@@ -181,7 +179,8 @@ async def menu_trip_confirm(callback: types.CallbackQuery, state: FSMContext):
         await callback.message.answer('Ориентировочное время посадки в шаттл - {time}. Нажмите ОК для перехода к оплате'.format(time = aprox_time), reply_markup=kb_trip_confirmation)
         await callback.answer()
     else:
-        await callback.message.answer('К сожалению нет такого кол-ва доступных мест', reply_markup=kb_path)
+        if trip_id is None or False:
+            await callback.message.answer('К сожалению нет такого кол-ва доступных мест', reply_markup=kb_path)
         await callback.answer()
         await state.finish()
 
@@ -215,7 +214,7 @@ async def menu_handle_payment(callback: types.CallbackQuery, state: FSMContext):
         await callback.message.answer('Оплатите водителю сумму `{total_amount}` РУБ при посадке! Приятного пользования сервисом CrimGo. Код для посадки `{otp}`'.format(
             total_amount=int(data['seat'])*100, otp=data['otp']))
         # Создание билета в БД       
-        await crimgo_db.create_ticket(state, payment_id)
+        ticket_id = await crimgo_db.create_ticket(state, payment_id)
         # Пересмотр статуса поездки
         await crimgo_db.trip_status_review(state)
         # Пуш водителю
@@ -227,14 +226,22 @@ async def menu_handle_payment(callback: types.CallbackQuery, state: FSMContext):
             if is_first_ticket is True:
                 trip_details = await crimgo_db.trip_details(state)
                 await bot.send_message(driver_chat_id[0], 'Поздравляем, Вам назначен рейс {trip_id} "{route}". Старт в {start_time}'.format(trip_id = trip_details[0], route = trip_details[1], start_time = (config.TIME_OFFSET + trip_details[2]).strftime("%H:%M")), reply_markup=kb_driver_shift)
-                text = 'Ост. {pickup_point}, {pickup_time}, {seats}м'.format(pickup_point = data['geo'], pickup_time = data['aprox_time'], seats = data['seat'])    
+                if data['route'] == 'К морю':
+                    text = 'Ост. {pickup_point}, {pickup_time}, {seats}м'.format(pickup_point = data['geo'], pickup_time = data['aprox_time'], seats = data['seat'])    
+                if data['route'] == 'От моря':
+                    ticket_pp_time = await crimgo_db.ticket_pp_time(ticket_id)
+                    text = 'Ост. {pickup_point}, {pickup_time}, {seats}м'.format(pickup_point = data['geo'], pickup_time = (ticket_pp_time + config.TIME_OFFSET).strftime("%H:%M"), seats = data['seat'])    
                 msg = await bot.send_message(driver_chat_id[0], text, reply_markup=kb_start_trip)
                 await crimgo_db.set_shuttle_message_id(msg.message_id, state)
                 await crimgo_db.save_message_id_and_text(state, text)
             else:
                 # Нотификация водителя о новых билетах
                 tmp = await crimgo_db.get_message_id_and_text(state)
-                text = tmp + '\nОст. {pickup_point}, {pickup_time}, {seats}м'.format(pickup_point = data['geo'], pickup_time = data['aprox_time'], seats = data['seat'])
+                if data['route'] == 'К морю':
+                    text = tmp + '\nОст. {pickup_point}, {pickup_time}, {seats}м'.format(pickup_point = data['geo'], pickup_time = data['aprox_time'], seats = data['seat'])    
+                if data['route'] == 'От моря':
+                    ticket_pp_time = await crimgo_db.ticket_pp_time(ticket_id)
+                    text = tmp + '\nОст. {pickup_point}, {pickup_time}, {seats}м'.format(pickup_point = data['geo'], pickup_time = (ticket_pp_time + config.TIME_OFFSET).strftime("%H:%M"), seats = data['seat'])    
                 await bot.edit_message_text(chat_id = driver_chat_id[0], message_id = driver_chat_id[1], text = text, reply_markup=kb_start_trip)
                 await crimgo_db.save_message_id_and_text(state, text)
                 # Проверка статуса рейса и отправка нотификации водителю об изменении начала рейса
@@ -304,9 +311,50 @@ async def process_successful_payment(message: types.Message, state: FSMContext):
         )
     # Запись в БД и завершение FSM    
     payment_id = await crimgo_db.successful_payment(state)
-    await crimgo_db.create_ticket(state, payment_id)
+    ticket_id = await crimgo_db.create_ticket(state, payment_id)
     await crimgo_db.trip_status_review(state)
 
+
+    ###########
+    # Пуш водителю
+    driver_chat_id = await crimgo_db.get_driver_chat_id(state)
+    # Если чат ID не пуст
+    if driver_chat_id[0] is not None:
+        is_first_ticket = await crimgo_db.is_first_ticket(state)
+        # Первый билет в рейсе
+        if is_first_ticket is True:
+            trip_details = await crimgo_db.trip_details(state)
+            await bot.send_message(driver_chat_id[0], 'Поздравляем, Вам назначен рейс {trip_id} "{route}". Старт в {start_time}'.format(trip_id = trip_details[0], route = trip_details[1], start_time = (config.TIME_OFFSET + trip_details[2]).strftime("%H:%M")), reply_markup=kb_driver_shift)
+            if data['route'] == 'К морю':
+                text = 'Ост. {pickup_point}, {pickup_time}, {seats}м'.format(pickup_point = data['geo'], pickup_time = data['aprox_time'], seats = data['seat'])    
+            if data['route'] == 'От моря':
+                ticket_pp_time = await crimgo_db.ticket_pp_time(ticket_id)
+                text = 'Ост. {pickup_point}, {pickup_time}, {seats}м'.format(pickup_point = data['geo'], pickup_time = (ticket_pp_time + config.TIME_OFFSET).strftime("%H:%M"), seats = data['seat'])    
+            msg = await bot.send_message(driver_chat_id[0], text, reply_markup=kb_start_trip)
+            await crimgo_db.set_shuttle_message_id(msg.message_id, state)
+            await crimgo_db.save_message_id_and_text(state, text)
+        else:
+            # Нотификация водителя о новых билетах
+            tmp = await crimgo_db.get_message_id_and_text(state)
+            if data['route'] == 'К морю':
+                text = tmp + '\nОст. {pickup_point}, {pickup_time}, {seats}м'.format(pickup_point = data['geo'], pickup_time = data['aprox_time'], seats = data['seat'])
+            if data['route'] == 'От моря':
+                ticket_pp_time = await crimgo_db.ticket_pp_time(ticket_id)
+                text = tmp + '\nОст. {pickup_point}, {pickup_time}, {seats}м'.format(pickup_point = data['geo'], pickup_time = (ticket_pp_time + config.TIME_OFFSET).strftime("%H:%M"), seats = data['seat'])
+            await bot.edit_message_text(chat_id = driver_chat_id[0], message_id = driver_chat_id[1], text = text, reply_markup=kb_start_trip)
+            await crimgo_db.save_message_id_and_text(state, text)
+            # Проверка статуса рейса и отправка нотификации водителю об изменении начала рейса
+            status = await crimgo_db.trip_status(state)
+            if status == 'scheduled':
+                start_time = await crimgo_db.get_trip_start_time_by_id(state)
+                tickets = await crimgo_db.get_dict_of_tickets_by_trip(state)
+                text = 'Внимание, время начало рейса обновлено: {start_time}\n'.format(start_time = (start_time + config.TIME_OFFSET).strftime("%H:%M"))
+                # Собираем остановки в одно сообщение
+                for i in tickets:
+                    text = text + 'Ост. {pp}, {time}, {seats}м\n'.format(pp = i[0], time = (i[2] + config.TIME_OFFSET).strftime("%H:%M"), seats = i[1])
+                # Редактируем последее сообщение
+                await bot.edit_message_text(chat_id = driver_chat_id[0], message_id = driver_chat_id[1], text = text, reply_markup=kb_start_trip)
+    ###########
     await state.finish()
 
 #async def pp_recalcutation():
