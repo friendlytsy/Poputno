@@ -99,7 +99,7 @@ async def cmd_start_trip(callback: types.CallbackQuery):
     
 async def cmd_onboarding(callback: types.CallbackQuery):
     await callback.answer()
-    await callback.message.answer('Введите 4х значный секртеный код, который назовут пассажиры\n--\nВводить через пробел', reply_markup=ReplyKeyboardRemove())
+    await callback.message.answer('Введите 4х значный секртеный код, который назовут пассажиры', reply_markup=ReplyKeyboardRemove())
     await FSMCodeVerification.s_code_verification.set()
     
 
