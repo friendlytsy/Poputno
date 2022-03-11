@@ -37,13 +37,17 @@ kb_start_trip.add(btn_start_trip)
 # s_onboarding = State()
 kb_onboarding_trip = InlineKeyboardMarkup()
 btn_onboarding_trip = InlineKeyboardButton(text = 'Посадка', callback_data='Посадка')
-btn_nopassenger_trip = InlineKeyboardButton(text = 'Нет пассажира', callback_data='Нет пассажира')
+# btn_nopassenger_trip = InlineKeyboardButton(text = 'Нет пассажира', callback_data='Нет пассажира')
 kb_onboarding_trip.add(btn_onboarding_trip)
 
 kb_continue_trip = InlineKeyboardMarkup()
 btn_continue_trip = InlineKeyboardButton(text = 'Продолжить', callback_data='Продолжить')
 btn_retry_onboarding = InlineKeyboardButton(text = 'Повторить ввод', callback_data='Повторить ввод')
 kb_continue_trip.add(btn_continue_trip).add(btn_retry_onboarding)
+
+kb_pass_absent = InlineKeyboardMarkup()
+btn_pass_absent = InlineKeyboardButton(text = 'Нет пассажира', callback_data='Нет пассажира')
+kb_pass_absent.add(btn_pass_absent)
 
 # s_verify_code = State()
 #kb_verify_code = InlineKeyboardMarkup()
