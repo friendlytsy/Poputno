@@ -149,6 +149,10 @@ alter_table_shuttle_set_owner = '''ALTER TABLE IF EXISTS public.shuttle OWNER to
 
 
 # -- Table: public.ticket
+# Активный - active
+# Использован по назначению - used
+# Аннулирован пассажиром(отказался через бота) - refused
+# 4- Аннулирован водителем(не пришел на посадку) - canceled
 create_table_ticket = '''CREATE TABLE IF NOT EXISTS public.ticket
 (
     id integer NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 ),
@@ -159,7 +163,7 @@ create_table_ticket = '''CREATE TABLE IF NOT EXISTS public.ticket
     otp integer NOT NULL,
     raw_pickup_time timestamp without time zone NOT NULL,
     final_pickup_time timestamp without time zone NOT NULL,
-    use boolean NOT NULL DEFAULT false,
+    status character varying COLLATE pg_catalog."default",
     CONSTRAINT ticket_pkey PRIMARY KEY (id),
     CONSTRAINT ticket_ref_payment_fk FOREIGN KEY (payment_id)
         REFERENCES public.payment (id) MATCH SIMPLE
@@ -250,7 +254,7 @@ select_trip_creation_time = '''SELECT creation_time FROM trip WHERE id = %s'''
 select_time_to_pp = '''SELECT time_to_pp FROM pickup_point WHERE name = %s AND route_id = (SELECT id FROM route WHERE name = %s)'''
 
 # Создание записи билета
-insert_into_ticket = '''INSERT INTO ticket (payment_id, trip_id, pickup_point, booked_seats, otp, raw_pickup_time, final_pickup_time) VALUES (%s, %s, (SELECT id from pickup_point WHERE name = %s AND route_id = (SELECT id FROM route WHERE name = %s)), %s, %s, %s, %s) RETURNING id'''
+insert_into_ticket = '''INSERT INTO ticket (payment_id, trip_id, pickup_point, booked_seats, otp, raw_pickup_time, final_pickup_time, status) VALUES (%s, %s, (SELECT id from pickup_point WHERE name = %s AND route_id = (SELECT id FROM route WHERE name = %s)), %s, %s, %s, %s, \'active\') RETURNING id'''
 
 # Возвращает детали поездки, t.id, r.name, t.start_time
 select_trip_available = '''SELECT t.id, r.name, t.creation_time FROM trip AS t, route AS r WHERE t.shuttle_id = (SELECT id FROM shuttle WHERE name = %s) AND t.status = \'scheduled\' AND t.route = r.id'''
@@ -319,10 +323,10 @@ update_shutlle_set_position = '''UPDATE shuttle SET current_position = %s WHERE 
 update_trip_set_status = '''UPDATE trip SET status = %s WHERE status = %s AND shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s)'''
 
 # Возвращает p.pass_id, t.booked_seats
-select_pass_seat = '''SELECT p.pass_id, t.booked_seats FROM payment AS p, ticket AS t WHERE p.id = (SELECT payment_id FROM ticket WHERE use = False AND otp = %s AND trip_id = (SELECT id FROM trip WHERE status = \'started\' AND shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s))) AND p.id = t.payment_id'''
+select_pass_seat = '''SELECT p.pass_id, t.booked_seats FROM payment AS p, ticket AS t WHERE p.id = (SELECT payment_id FROM ticket WHERE status = \'active\' AND otp = %s AND trip_id = (SELECT id FROM trip WHERE status = \'started\' AND shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s))) AND p.id = t.payment_id'''
 
 # Обновляет статус билета
-update_ticket_status = '''UPDATE ticket SET use = True WHERE use = False AND pickup_point = %s AND trip_id = (SELECT id FROM trip where status = \'started\' AND shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s)) AND booked_seats = %s AND otp = %s'''
+update_ticket_status = '''UPDATE ticket SET status = \'used\' WHERE status = \'active\' AND pickup_point = %s AND trip_id = (SELECT id FROM trip where status = \'started\' AND shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s)) AND booked_seats = %s AND otp = %s'''
 
 # Обновляет кол-во поездок у пассажира
 update_passenger_decrease_trip = '''UPDATE passenger SET available_trips = available_trips - %s WHERE telegram_id = %s'''
