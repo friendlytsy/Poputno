@@ -99,7 +99,20 @@ async def cmd_start_trip(callback: types.CallbackQuery):
     
 async def cmd_onboarding(callback: types.CallbackQuery):
     await callback.answer()
-    await callback.message.answer('Введите 4х значный секртеный код, который назовут пассажиры', reply_markup=ReplyKeyboardRemove())
+
+    # Получить словарь билетов на рейс
+    tickets = await crimgo_db.get_dict_of_tickets_by_driver(callback.from_user.id)
+
+    # Текущее местоположение шаттла
+    shuttle_position = await crimgo_db.get_shuttle_position(callback)
+    
+    # TODO нужно оптимизировать
+    t_counter = 0
+    for i in tickets:
+        if shuttle_position == i[3]:
+            t_counter = t_counter + 1 
+
+    await callback.message.answer('Введите 4х значный секртеный код, который назовут пассажиры.\n--\nОжидаем {t_counter} код(а) на проверку'.format(t_counter = t_counter), reply_markup=ReplyKeyboardRemove())
     await FSMCodeVerification.s_code_verification.set()
     
 
