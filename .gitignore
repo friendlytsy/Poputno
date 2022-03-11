@@ -3,5 +3,3 @@ config/config.py
 *.pyc
 .gitignore
 nohup.out
-
-
