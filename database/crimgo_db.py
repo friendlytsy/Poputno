@@ -296,15 +296,20 @@ async def trip_status_review(state):
                 if data['route'] == 'К морю':
                     cursor.execute(crimgo_db_crud.select_ticket_order_by_raw_pickup_time, (data['trip_id'],))
                     soonest_pp_time = cursor.fetchone()[0]
+                     # берем ближайшее время и вычисляем время к билжайшему пассажиру
+                    time_offset = soonest_pp_time - datetime.datetime.now()
+
                 if data['route'] == 'От моря': 
                     cursor.execute(crimgo_db_crud.select_trip_creation_time, (data['trip_id'],))
                     soonest_pp_time = cursor.fetchone()[0]
-                # берем ближайшее время и вычисляем время к билжайшему пассажиру
-                #soonest_pp_time = cursor.fetchone()[0]
-                time_offset = (soonest_pp_time + config.MAX_WAIT_TIME) - datetime.datetime.now()
+                    # берем время создания поездки
+                    time_offset = (soonest_pp_time + config.MAX_WAIT_TIME) - datetime.datetime.now()
+                
+                # Если в запасе есть 10 минут, меняем время старта и прибытия    
                 if (time_offset > config.MIN_WAIT_TIME):
                     # Меняю время подбора для пассажиров
                     new_time = time_offset - config.MIN_WAIT_TIME
+
                     cursor.execute(crimgo_db_crud.update_ticket_set_final_time, (new_time, data['trip_id']))
                     # Меняем время начала и статус рейса
                     cursor.execute(crimgo_db_crud.update_trip_set_status_scheduled, (new_time, data['trip_id']))
