@@ -3,3 +3,4 @@ config/config.py
 *.pyc
 .gitignore
 nohup.out
+bot_prod_telegram.py
