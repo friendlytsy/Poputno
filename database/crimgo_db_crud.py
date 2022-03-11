@@ -4,10 +4,10 @@
 # -- Table: public.driver
 create_table_driver = '''CREATE TABLE IF NOT EXISTS public.driver
 (
-    phone character(50) COLLATE pg_catalog."default" NOT NULL,
+    phone character varying(50) COLLATE pg_catalog."default" NOT NULL,
     telegram_id bigint NOT NULL,
-    telegram_name character(100) COLLATE pg_catalog."default",
-    name character(100) COLLATE pg_catalog."default" NOT NULL,
+    telegram_name character varying(100) COLLATE pg_catalog."default",
+    name character varying(100) COLLATE pg_catalog."default" NOT NULL,
     "timestamp" timestamp without time zone,
     on_shift boolean NOT NULL DEFAULT false,
     validated boolean NOT NULL DEFAULT false,
@@ -34,10 +34,10 @@ alter_table_message_set_owner = '''ALTER TABLE IF EXISTS public.message OWNER to
 create_table_passenger = '''CREATE TABLE IF NOT EXISTS public.passenger
 (
     telegram_id bigint NOT NULL,
-    phone character(50) COLLATE pg_catalog."default",
+    phone character varying(50) COLLATE pg_catalog."default",
     "timestamp" timestamp without time zone NOT NULL,
     available_trips integer DEFAULT 0,
-    telegram_name character(50) COLLATE pg_catalog."default",
+    telegram_name character varying(50) COLLATE pg_catalog."default",
     CONSTRAINT passenger_pkey PRIMARY KEY (telegram_id)
 )
 
@@ -61,14 +61,12 @@ create_table_trip = '''CREATE TABLE IF NOT EXISTS public.trip
     CONSTRAINT path_ref_route_fk FOREIGN KEY (route)
         REFERENCES public.route (id) MATCH SIMPLE
         ON UPDATE NO ACTION
-        ON DELETE NO ACTION
-        NOT VALID,
+        ON DELETE NO ACTION,
     CONSTRAINT shuttle_ref_shuttle_id_fk FOREIGN KEY (shuttle_id)
         REFERENCES public.shuttle (id) MATCH SIMPLE
         ON UPDATE NO ACTION
-        ON DELETE NO ACTION
-        NOT VALID,
-    CONSTRAINT seats_nonnegative CHECK (available_seats >= 0) NOT VALID
+        ON DELETE NO ACTION,
+    CONSTRAINT seats_nonnegative CHECK (available_seats >= 0)
 )
 
 TABLESPACE pg_default;'''
@@ -81,11 +79,11 @@ create_table_payment = '''CREATE TABLE IF NOT EXISTS public.payment
 (
     id integer NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 ),
     total_amount double precision NOT NULL,
-    telegram_payment_charge_id character(100) COLLATE pg_catalog."default",
-    provider_payment_charge_id character(100) COLLATE pg_catalog."default",
+    telegram_payment_charge_id character varying(100) COLLATE pg_catalog."default",
+    provider_payment_charge_id character varying(100) COLLATE pg_catalog."default",
     pass_id bigint NOT NULL,
     "timestamp" timestamp without time zone NOT NULL,
-    payment_type character(10) COLLATE pg_catalog."default" NOT NULL,
+    payment_type character varying(10) COLLATE pg_catalog."default" NOT NULL,
     CONSTRAINT payment_pkey PRIMARY KEY (id),
     CONSTRAINT payment_ref_pass_fk FOREIGN KEY (pass_id)
         REFERENCES public.passenger (telegram_id) MATCH SIMPLE
@@ -122,7 +120,7 @@ alter_table_pickup_point_set_owner = '''ALTER TABLE IF EXISTS public.pickup_poin
 create_table_route = '''CREATE TABLE IF NOT EXISTS public.route
 (
     id integer NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 ),
-    name character(10) COLLATE pg_catalog."default" NOT NULL,
+    name character varying(10) COLLATE pg_catalog."default" NOT NULL,
     CONSTRAINT route_pkey PRIMARY KEY (id)
 )
 
@@ -135,7 +133,7 @@ alter_table_route_set_owner = '''ALTER TABLE IF EXISTS public.route OWNER to pos
 create_table_shuttle = '''CREATE TABLE IF NOT EXISTS public.shuttle
 (
     id integer NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 ),
-    name character(50) COLLATE pg_catalog."default" NOT NULL,
+    name character varying(50) COLLATE pg_catalog."default" NOT NULL,
     capacity integer NOT NULL,
     driver_id bigint,
     current_position integer,
@@ -166,18 +164,15 @@ create_table_ticket = '''CREATE TABLE IF NOT EXISTS public.ticket
     CONSTRAINT ticket_ref_payment_fk FOREIGN KEY (payment_id)
         REFERENCES public.payment (id) MATCH SIMPLE
         ON UPDATE NO ACTION
-        ON DELETE NO ACTION
-        NOT VALID,
+        ON DELETE NO ACTION,
     CONSTRAINT ticket_ref_pp_fk FOREIGN KEY (pickup_point)
         REFERENCES public.pickup_point (id) MATCH SIMPLE
         ON UPDATE NO ACTION
-        ON DELETE NO ACTION
-        NOT VALID,
+        ON DELETE NO ACTION,
     CONSTRAINT ticket_ref_trip_fk FOREIGN KEY (trip_id)
         REFERENCES public.trip (id) MATCH SIMPLE
         ON UPDATE NO ACTION
         ON DELETE NO ACTION
-        NOT VALID
 )
 
 TABLESPACE pg_default;'''
