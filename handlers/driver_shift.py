@@ -3,7 +3,7 @@ from subprocess import call
 from aiogram import Dispatcher, types
 from create_bot import dp, bot
 from database import crimgo_db, crimgo_db_crud
-from keyboards import kb_driver, kb_driver_shift, kb_start_point, kb_start_trip, kb_onboarding_trip, kb_continue_trip
+from keyboards import kb_driver, kb_driver_shift, kb_start_point, kb_start_trip, kb_onboarding_trip, kb_continue_trip, kb_pass_absent
 from aiogram.types import ReplyKeyboardRemove
 
 from aiogram.dispatcher import FSMContext
@@ -19,6 +19,7 @@ class FSMStartDriverShift(StatesGroup):
 
 class FSMCodeVerification(StatesGroup):
     s_code_verification = State()
+    s_onboarding_finish = State
 
 async def cmd_start_shift(message: types.Message):
     await FSMStartDriverShift.s_inpute_shuttle_name.set()
@@ -112,12 +113,15 @@ async def cmd_onboarding(callback: types.CallbackQuery):
         if shuttle_position == i[3]:
             t_counter = t_counter + 1 
 
-    await callback.message.answer('Введите 4х значный секртеный код, который назовут пассажиры.\n--\nОжидаем {t_counter} код(а) на проверку'.format(t_counter = t_counter), reply_markup=ReplyKeyboardRemove())
-    await FSMCodeVerification.s_code_verification.set()
-    
+    await callback.message.answer('Введите 4х значный секртеный код, который назовут пассажиры''Ожидаем {t_counter} код(а) на проверку'.format(t_counter = t_counter), reply_markup=ReplyKeyboardRemove())
+    await callback.message.answer('Ожидаем {t_counter} код(а) на проверку'.format(t_counter = t_counter), reply_markup=kb_pass_absent)
+    await FSMCodeVerification.s_code_verification.set()    
 
 # получение кодов и проверка
 async def cmd_code_verification(message: types.Message, state: FSMContext):
+    # Ищем кол-во билетов для остановки
+    # Пока кол-во билетов !=0  
+    
     await state.finish()
     codes = message.text.split()
     for code in codes:
