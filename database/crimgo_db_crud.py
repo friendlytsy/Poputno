@@ -152,7 +152,7 @@ alter_table_shuttle_set_owner = '''ALTER TABLE IF EXISTS public.shuttle OWNER to
 # Активный - active
 # Использован по назначению - used
 # Аннулирован пассажиром(отказался через бота) - refused
-# 4- Аннулирован водителем(не пришел на посадку) - canceled
+# Аннулирован водителем(не пришел на посадку) - canceled
 create_table_ticket = '''CREATE TABLE IF NOT EXISTS public.ticket
 (
     id integer NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 ),
