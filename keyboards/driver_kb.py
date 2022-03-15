@@ -21,8 +21,8 @@ kb_driver.row(btn_start_shift).add(btn_contact_support)
 
 # s_start_point = State()
 kb_start_point = InlineKeyboardMarkup()
-btn_point_1 = InlineKeyboardButton(text = '№1 Шале', callback_data='№1 Шале')
-btn_point_7 = InlineKeyboardButton(text = '№7 Море', callback_data='№7 Море')
+btn_point_1 = InlineKeyboardButton(text = 'ЖК Ришелье Шато', callback_data='ЖК Ришелье Шато')
+btn_point_7 = InlineKeyboardButton(text = 'Успенская церковь', callback_data='Успенская церковь')
 kb_start_point.add(btn_point_1).add(btn_point_7)
 
 # s_awaiting_path = State()
@@ -42,12 +42,16 @@ kb_onboarding_trip.add(btn_onboarding_trip)
 
 kb_continue_trip = InlineKeyboardMarkup()
 btn_continue_trip = InlineKeyboardButton(text = 'Продолжить', callback_data='Продолжить')
-btn_retry_onboarding = InlineKeyboardButton(text = 'Повторить ввод', callback_data='Повторить ввод')
-kb_continue_trip.add(btn_continue_trip).add(btn_retry_onboarding)
+# btn_retry_onboarding = InlineKeyboardButton(text = 'Повторить ввод', callback_data='Повторить ввод')
+kb_continue_trip.add(btn_continue_trip)
 
 kb_pass_absent = InlineKeyboardMarkup()
 btn_pass_absent = InlineKeyboardButton(text = 'Нет пассажира', callback_data='Нет пассажира')
 kb_pass_absent.add(btn_pass_absent)
+
+kb_retry_code = InlineKeyboardMarkup()
+btn_request_retry = InlineKeyboardButton(text = 'Посадка', callback_data='Посадка')
+kb_retry_code.add(btn_request_retry)
 
 # s_verify_code = State()
 #kb_verify_code = InlineKeyboardMarkup()

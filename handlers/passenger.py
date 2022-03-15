@@ -142,6 +142,8 @@ async def menu_pp_confirm(callback: types.CallbackQuery, state: FSMContext):
         await FSMOrder_trip.s_pp_confirmation.set()
         async with state.proxy() as data:
                 data['geo'] = callback.data
+        pp_location = await crimgo_db.get_pp_location(callback.data, data['route'])
+        await bot.send_location(chat_id=callback.from_user.id, latitude=pp_location[0], longitude=pp_location[1])
         await callback.message.answer('Вы выбрали остановку {pp}, нажмите подтвердить'.format(pp = data['geo']), reply_markup=kb_pp_confirmation)
     else:
         await FSMOrder_trip.s_seat_selection.set()
