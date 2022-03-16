@@ -55,7 +55,7 @@ async def get_contact(message: types.Message):
 
 # Чат поддержки
 async def cmd_contact_with_support(message: types.Message):
-    await message.reply(message.text)
+    await bot.send_contact(chat_id = message.from_user.id, phone_number = '+7 978 173-26-90', first_name = 'Администрация CrimGo')
 
 # Покупка абонемента
 async def cmd_subscription(message: types.Message, state: FSMContext):
