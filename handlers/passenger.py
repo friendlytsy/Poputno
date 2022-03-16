@@ -9,7 +9,6 @@ from create_bot import dp, bot
 from database import crimgo_db
 from keyboards import kb_pass, kb_driver, kb_path, kb_seat, kb_geoposition, kb_pp_confirmation, kb_trip_confirmation, kb_payment_type, kb_driver_shift, kb_generic_start, kb_start_trip, kb_onboarding_trip
 
-
 from random import randrange
 
 from config import config
@@ -116,85 +115,104 @@ async def cmd_order_trip(message: types.Message):
 
 # Выбор маршрута
 async def menu_route_selection(callback: types.CallbackQuery, state: FSMContext):
-    await FSMOrder_trip.s_seat_selection.set()
-    async with state.proxy() as data:
-            data['route'] = callback.data
-    await callback.message.answer('Выберете кол-во мест', reply_markup=kb_seat)
-    await callback.answer()
-
+    if callback.data != 'Отмена':
+        await FSMOrder_trip.s_seat_selection.set()
+        async with state.proxy() as data:
+                data['route'] = callback.data
+        await callback.message.answer('Выберете кол-во мест', reply_markup=kb_seat)
+        await callback.answer()
+    else:
+        await callback.answer()
+        await state.finish()
+        await callback.message.answer('Заказ отменен', reply_markup=kb_pass)
 
 # Выбор кол-ва мест
 async def menu_seat_selection(callback: types.CallbackQuery, state: FSMContext):
-    await FSMOrder_trip.s_geolocation.set()
-    async with state.proxy() as data:
-            data['seat'] = callback.data
-            data['total_amount'] = int(data['seat'])*100
-    await callback.message.answer(f'Вы выбрали {callback.data} мест(а)')
-    if data['route'] == 'К морю':
-        await callback.message.answer('Выбирите наиболее  близкое к вам место посадки', reply_markup=kb_geoposition)
-    if data['route'] == 'От моря':
-        await callback.message.answer('Выбирите ближайшую остановку к Вашему дому', reply_markup=kb_geoposition)
-    await callback.answer()
+    if callback.data != 'Отмена':
+        await FSMOrder_trip.s_geolocation.set()
+        async with state.proxy() as data:
+                data['seat'] = callback.data
+                data['total_amount'] = int(data['seat'])*100
+        await callback.message.answer(f'Вы выбрали {callback.data} мест(а)')
+        if data['route'] == 'К морю':
+            await callback.message.answer('Выбирите наиболее  близкое к вам место посадки', reply_markup=kb_geoposition)
+        if data['route'] == 'От моря':
+            await callback.message.answer('Выбирите ближайшую остановку к Вашему дому', reply_markup=kb_geoposition)
+        await callback.answer()
+    else:
+        await callback.answer()
+        await state.finish()
+        await callback.message.answer('Заказ отменен', reply_markup=kb_pass)    
 
 # Геопозиция
 async def menu_pp_confirm(callback: types.CallbackQuery, state: FSMContext):
-    if callback.data != 'Назад':
-        await FSMOrder_trip.s_pp_confirmation.set()
-        async with state.proxy() as data:
-                data['geo'] = callback.data
-        pp_location = await crimgo_db.get_pp_location(callback.data, data['route'])
-        await bot.send_location(chat_id=callback.from_user.id, latitude=pp_location[0], longitude=pp_location[1])
-        await callback.message.answer('Вы выбрали остановку {pp}, нажмите подтвердить'.format(pp = data['geo']), reply_markup=kb_pp_confirmation)
+    if callback.data != 'Отмена':
+        if callback.data != 'Назад':
+            await FSMOrder_trip.s_pp_confirmation.set()
+            async with state.proxy() as data:
+                    data['geo'] = callback.data
+            pp_location = await crimgo_db.get_pp_location(callback.data, data['route'])
+            await bot.send_location(chat_id=callback.from_user.id, latitude=pp_location[0], longitude=pp_location[1])
+            await callback.message.answer('Вы выбрали остановку {pp}, нажмите подтвердить'.format(pp = data['geo']), reply_markup=kb_pp_confirmation)
+        else:
+            await FSMOrder_trip.s_seat_selection.set()
+            await callback.message.answer('Выберете кол-во мест', reply_markup=kb_seat)
+        await callback.answer()
     else:
-        await FSMOrder_trip.s_seat_selection.set()
-        await callback.message.answer('Выберете кол-во мест', reply_markup=kb_seat)
-    await callback.answer()
+        await callback.answer()
+        await state.finish()
+        await callback.message.answer('Заказ отменен', reply_markup=kb_pass)
 
 # Выбор остановки
 async def menu_trip_confirm(callback: types.CallbackQuery, state: FSMContext):
-    if callback.data != 'Повторить':
-        await FSMOrder_trip.s_trip_confirmation.set()
-        async with state.proxy() as data:
-                data['pp_confirm'] = callback.data
-        
-        #########
-        #########
-        # если нет trip с указаным маршрутом, создаем его
-        trip_id = await crimgo_db.is_trip_with_route(state)
-        if (trip_id is None):
-            trip_id = await crimgo_db.create_trip(state)
-            if (trip_id is False):
-                await callback.message.answer('Сервис временно не доступен, попробуйте позже')
-                await callback.answer()
-                await state.finish()
+    if callback.data != 'Отмена':
+        if callback.data != 'Повторить':
+            await FSMOrder_trip.s_trip_confirmation.set()
+            async with state.proxy() as data:
+                    data['pp_confirm'] = callback.data
+            
+            #########
+            #########
+            # если нет trip с указаным маршрутом, создаем его
+            trip_id = await crimgo_db.is_trip_with_route(state)
+            if (trip_id is None):
+                trip_id = await crimgo_db.create_trip(state)
+                if (trip_id is False):
+                    await callback.message.answer('Сервис временно не доступен, попробуйте позже')
+                    await callback.answer()
+                    await state.finish()
+                else:
+                    async with state.proxy() as data:
+                        data['trip_id'] = trip_id 
             else:
                 async with state.proxy() as data:
                     data['trip_id'] = trip_id 
-        else:
-            async with state.proxy() as data:
-                data['trip_id'] = trip_id 
 
-        # Проверка на кол-во доступных мест
-        if (await crimgo_db.seat_availability(state)) is True:
-            aprox_time = await crimgo_db.calculate_raw_pickup_time(state)
-            async with state.proxy() as data:
-                data['aprox_time'] = aprox_time
-            await callback.message.answer('Ориентировочное время посадки в шаттл - {time}. Нажмите ОК для перехода к оплате'.format(time = aprox_time), reply_markup=kb_trip_confirmation)
-            await callback.answer()
+            # Проверка на кол-во доступных мест
+            if (await crimgo_db.seat_availability(state)) is True:
+                aprox_time = await crimgo_db.calculate_raw_pickup_time(state)
+                async with state.proxy() as data:
+                    data['aprox_time'] = aprox_time
+                await callback.message.answer('Ориентировочное время посадки в шаттл - {time}. Нажмите ОК для перехода к оплате'.format(time = aprox_time), reply_markup=kb_trip_confirmation)
+                await callback.answer()
+            else:
+                if trip_id is None or False:
+                    await callback.message.answer('К сожалению нет такого кол-ва доступных мест', reply_markup=kb_path)
+                await callback.answer()
+                await state.finish()
         else:
-            if trip_id is None or False:
-                await callback.message.answer('К сожалению нет такого кол-ва доступных мест', reply_markup=kb_path)
+            await FSMOrder_trip.s_geolocation.set()
             await callback.answer()
-            await state.finish()
+            async with state.proxy() as data:
+                route = data['route']
+            if route == 'К морю':
+                await callback.message.answer('Выбирите наиболее  близкое к вам место посадки', reply_markup=kb_geoposition)
+            if route == 'От моря':
+                await callback.message.answer('Выбирите ближайшую остановку к Вашему дому', reply_markup=kb_geoposition)
     else:
-        await FSMOrder_trip.s_geolocation.set()
         await callback.answer()
-        async with state.proxy() as data:
-            route = data['route']
-        if route == 'К морю':
-            await callback.message.answer('Выбирите наиболее  близкое к вам место посадки', reply_markup=kb_geoposition)
-        if route == 'От моря':
-            await callback.message.answer('Выбирите ближайшую остановку к Вашему дому', reply_markup=kb_geoposition)
+        await state.finish()
+        await callback.message.answer('Заказ отменен', reply_markup=kb_pass)
 
 # Быбор способа оплаты
 async def menu_payment_type(callback: types.CallbackQuery, state: FSMContext):
