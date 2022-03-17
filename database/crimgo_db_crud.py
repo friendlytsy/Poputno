@@ -38,6 +38,8 @@ create_table_passenger = '''CREATE TABLE IF NOT EXISTS public.passenger
     "timestamp" timestamp without time zone NOT NULL,
     available_trips integer DEFAULT 0,
     telegram_name character varying(50) COLLATE pg_catalog."default",
+    message_id bigint NULL,
+    chat_id bigint NULL,
     CONSTRAINT passenger_pkey PRIMARY KEY (telegram_id)
 )
 
@@ -365,3 +367,9 @@ select_ending_station = '''SELECT name FROM pickup_point WHERE route_id = %s ORD
 
 # Возвращает ширину и долготу остановки по маршруту
 select_pp_location_by_route = '''SELECT latitude, longitude FROM pickup_point WHERE name = %s AND route_id = (SELECT id FROM route WHERE name = %s)'''
+
+# Обновляет ИД чата и сообщения
+update_passenger_set_msg_chat_id = '''UPDATE passenger SET message_id = %s, chat_id = %s WHERE telegram_id = %s'''
+
+# Возвращает инфу по билетам для пуша пользователю 
+select_trip_pass_details = '''SELECT p.chat_id, p.message_id, t.final_pickup_time, pp.name, t.otp FROM ticket AS t, passenger AS p, pickup_point AS pp WHERE trip_id = %s AND t.status = 'active' AND t.pickup_point = pp.id'''

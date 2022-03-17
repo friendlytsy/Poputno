@@ -558,3 +558,19 @@ async def get_pp_location(pp_name, route_name):
         return pp_location
     except (Exception, Error) as error:
         print("Ошибка при работе с get_pp_location", error) 
+
+async def save_pass_message_id(from_user_id, msg_id, chat_id):
+    try:
+        cursor.execute(crimgo_db_crud.update_passenger_set_msg_chat_id, (msg_id, chat_id, from_user_id))
+        connection.commit()
+    except (Exception, Error) as error:
+        print("Ошибка при работе с save_pass_message_id", error)     
+
+async def get_pass_trip_details(state):
+    try:
+        async with state.proxy() as data:
+            cursor.execute(crimgo_db_crud.select_trip_pass_details, (data['trip_id'], ))
+            pass_trip_details = cursor.fetchall()
+            return pass_trip_details
+    except (Exception, Error) as error:
+        print("Ошибка при работе с get_pass_trip_details", error)

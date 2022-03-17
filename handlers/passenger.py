@@ -241,8 +241,9 @@ async def menu_handle_payment(callback: types.CallbackQuery, state: FSMContext):
             data['pass_id'] = callback.from_user.id
 
         payment_id = await crimgo_db.successful_payment(state)
-        await callback.message.answer('Оплатите водителю сумму `{total_amount}` РУБ при посадке! Приятного пользования сервисом CrimGo. Код для посадки `{otp}`'.format(
-            total_amount=int(data['seat'])*100, otp=data['otp']))
+        msg = await callback.message.answer('Оплатите водителю сумму `{total_amount}` РУБ при посадке! Приятного пользования сервисом CrimGo. Код для посадки `{otp}`'.format(total_amount=int(data['seat'])*100, otp=data['otp']))
+        # Запись в БД данных для пуща пассажиру
+        await crimgo_db.save_pass_message_id(callback.from_user.id, msg.message_id, msg.chat.id)
         # Создание билета в БД       
         ticket_id = await crimgo_db.create_ticket(state, payment_id)
         # Пересмотр статуса поездки
@@ -274,7 +275,7 @@ async def menu_handle_payment(callback: types.CallbackQuery, state: FSMContext):
                     text = tmp + '\nОст. {pickup_point}, {pickup_time}, {seats}м'.format(pickup_point = data['geo'], pickup_time = (ticket_pp_time + config.TIME_OFFSET).strftime("%H:%M"), seats = data['seat'])    
                 await bot.edit_message_text(chat_id = driver_chat_id[0], message_id = driver_chat_id[1], text = text, reply_markup=kb_start_trip)
                 await crimgo_db.save_message_id_and_text(state, text)
-                # Проверка статуса рейса и отправка нотификации водителю об изменении начала рейса
+                # Проверка статуса рейса и отправка нотификации водителю и пассажиру об изменении начала рейса
                 status = await crimgo_db.trip_status(state)
                 if status == 'scheduled':
                     start_time = await crimgo_db.get_trip_start_time_by_id(state)
@@ -285,6 +286,11 @@ async def menu_handle_payment(callback: types.CallbackQuery, state: FSMContext):
                         text = text + 'Ост. {pp}, {time}, {seats}м\n'.format(pp = i[0], time = (i[2] + config.TIME_OFFSET).strftime("%H:%M"), seats = i[1])
                     # Редактируем последее сообщение
                     await bot.edit_message_text(chat_id = driver_chat_id[0], message_id = driver_chat_id[1], text = text, reply_markup=kb_start_trip)
+                    # Редактируем сообщения пользователей
+                    pass_trip_details = await crimgo_db.get_pass_trip_details(state)
+                    for push in pass_trip_details:
+                        text = 'Внимание, новое время посадки: {time}\nМесто посадки: {pp}\nКод посадки: {otp}'.format(time = (push[2]).strftime("%H:%M"), pp = push[3], otp = push[4])
+                        await bot.edit_message_text(chat_id = push[0], message_id = push[1], text = text, reply_markup=None)
         
         await state.finish()
 
@@ -331,7 +337,7 @@ async def process_successful_payment(message: types.Message, state: FSMContext):
         data['pass_id'] = message.from_user.id
         
         # Сообщение пользователю
-        await bot.send_message(
+        msg = await bot.send_message(
             message.chat.id,
             'Платеж на сумму `{total_amount} {currency}` совершен успешно! Приятного пользования сервисом CrimGo. Код для посадки `{otp}`'.format(
             total_amount=data['total_amount'],
@@ -339,6 +345,9 @@ async def process_successful_payment(message: types.Message, state: FSMContext):
             otp=data['otp']
             )
         )
+    # Запись в БД данных для пуща пассажиру
+    await crimgo_db.save_pass_message_id(message.from_user.id, msg.message_id, msg.chat.id)
+
     # Запись в БД и завершение FSM    
     payment_id = await crimgo_db.successful_payment(state)
     ticket_id = await crimgo_db.create_ticket(state, payment_id)
@@ -382,8 +391,13 @@ async def process_successful_payment(message: types.Message, state: FSMContext):
                 # Собираем остановки в одно сообщение
                 for i in tickets:
                     text = text + 'Ост. {pp}, {time}, {seats}м\n'.format(pp = i[0], time = (i[2] + config.TIME_OFFSET).strftime("%H:%M"), seats = i[1])
-                # Редактируем последее сообщение
+                # Редактируем последее сообщение водителя
                 await bot.edit_message_text(chat_id = driver_chat_id[0], message_id = driver_chat_id[1], text = text, reply_markup=kb_start_trip)
+                # Редактируем сообщение пассажира
+                pass_trip_details = await crimgo_db.get_pass_trip_details(state)
+                for push in pass_trip_details:
+                    text = 'Внимание, новое время посадки: {time}\nМесто посадки: {pp}\nКод посадки: {otp}'.format(time = (push[2]).strftime("%H:%M"), pp = push[3], otp = push[4])
+                    await bot.edit_message_text(chat_id = push[0], message_id = push[1], text = text, reply_markup=None)
     ###########
     await state.finish()
 
