@@ -225,11 +225,39 @@ async def create_ticket(state, payment_id):
             # cursor.execute(crimgo_db_crud.select_trip_creation_time, (data['trip_id'],))
             # trip_creation_time = cursor.fetchone()[0]
             
-            # Время до остановки
-            cursor.execute(crimgo_db_crud.select_time_to_pp, (data['geo'], data['route']))
-            time_to_pp = cursor.fetchone()[0]
+            # ИД маршрута
+            cursor.execute(crimgo_db_crud.select_route_by_trip_id, (data['trip_id'], ))
+            route = cursor.fetchone()[0]
+            if route  == 1:
+                # Время до остановки
+                cursor.execute(crimgo_db_crud.select_time_to_pp, (data['pickup_point'], data['route']))
+                time_to_pp = cursor.fetchone()[0]
 
-            cursor.execute(crimgo_db_crud.insert_into_ticket ,(int(payment_id), data['trip_id'], data['geo'], data['route'], data['seat'], data['otp'], (datetime.datetime.now() + config.MAX_WAIT_TIME + timedelta(minutes = time_to_pp)), ((datetime.datetime.now() + config.MAX_WAIT_TIME + timedelta(minutes = time_to_pp)))))
+                # Время высадки, берется из поездки
+                cursor.execute(crimgo_db_crud.select_trip_drop_time, (data['trip_id'], ))
+                trip_drop_time = cursor.fetchone()[0]
+
+                # Время начала рейса, берется из поездки
+                cursor.execute(crimgo_db_crud.select_trip_start_time, (data['trip_id'], ))
+                trip_start_time = cursor.fetchone()[0]
+                # Используется время pickup point
+                cursor.execute(crimgo_db_crud.insert_into_ticket ,(int(payment_id), data['trip_id'], data['pickup_point'], data['route'], data['seat'], data['otp'], (trip_start_time + timedelta(minutes = time_to_pp)), (trip_start_time + timedelta(minutes = time_to_pp)), data['drop_point'], data['route'], trip_drop_time, trip_drop_time))
+
+            if route == 2:
+                # Время до остановки
+                cursor.execute(crimgo_db_crud.select_time_to_pp, (data['drop_point'], data['route']))
+                time_to_dp = cursor.fetchone()[0]
+
+                # Время высадки, берется из поездки
+                #cursor.execute(crimgo_db_crud.select_trip_drop_time, (data['trip_id'], ))
+                #trip_drop_time = cursor.fetchone()[0]
+
+                # Время начала рейса, берется из поездки
+                cursor.execute(crimgo_db_crud.select_trip_start_time, (data['trip_id'], ))
+                trip_start_time = cursor.fetchone()[0]
+                # Используется время drop point
+                cursor.execute(crimgo_db_crud.insert_into_ticket ,(int(payment_id), data['trip_id'], data['pickup_point'], data['route'], data['seat'], data['otp'], trip_start_time, trip_start_time, data['drop_point'], data['route'], (trip_start_time + timedelta(minutes = time_to_dp)), (trip_start_time + timedelta(minutes = time_to_dp))))
+            
             ticket_id = cursor.fetchone()[0]
             connection.commit()
             return ticket_id
@@ -242,15 +270,15 @@ async def calculate_raw_pickup_time(state):
     try:
         async with state.proxy() as data:
             # Время создания
-            cursor.execute(crimgo_db_crud.select_trip_creation_time, (data['trip_id'],))
-            trip_creation_time = cursor.fetchone()[0]
+            cursor.execute(crimgo_db_crud.select_trip_start_time, (data['trip_id'],))
+            trip_start_time = cursor.fetchone()[0]
             if data['route'] == 'К морю':
                 # Время до остановки
-                cursor.execute(crimgo_db_crud.select_time_to_pp, (data['geo'], data['route']))
+                cursor.execute(crimgo_db_crud.select_time_to_pp, (data['pickup_point'], data['route']))
                 time_to_pp = cursor.fetchone()[0]
-                aprox_time = ((trip_creation_time + config.TIME_OFFSET + timedelta(minutes = time_to_pp) + config.MAX_WAIT_TIME).strftime("%H:%M"))
+                aprox_time = ((trip_start_time + config.TIME_OFFSET + timedelta(minutes = time_to_pp)).strftime("%H:%M"))
             if data['route'] == 'От моря':
-                aprox_time = ((trip_creation_time + config.TIME_OFFSET + config.MAX_WAIT_TIME).strftime("%H:%M"))
+                aprox_time = ((trip_start_time + config.TIME_OFFSET).strftime("%H:%M"))
             return aprox_time
     except (Exception, Error) as error:
         print("Ошибка при работе с calculate_raw_pickup_time", error)
@@ -300,17 +328,17 @@ async def trip_status_review(state):
                     time_offset = soonest_pp_time - datetime.datetime.now()
 
                 if data['route'] == 'От моря': 
-                    cursor.execute(crimgo_db_crud.select_trip_creation_time, (data['trip_id'],))
+                    cursor.execute(crimgo_db_crud.select_trip_start_time, (data['trip_id'],))
                     soonest_pp_time = cursor.fetchone()[0]
                     # берем время создания поездки
-                    time_offset = (soonest_pp_time + config.MAX_WAIT_TIME) - datetime.datetime.now()
+                    time_offset = soonest_pp_time - datetime.datetime.now()
                 
                 # Если в запасе есть 10 минут, меняем время старта и прибытия    
                 if (time_offset > config.MIN_WAIT_TIME):
                     # Меняю время подбора для пассажиров
                     new_time = time_offset - config.MIN_WAIT_TIME
 
-                    cursor.execute(crimgo_db_crud.update_ticket_set_final_time, (new_time, data['trip_id']))
+                    cursor.execute(crimgo_db_crud.update_ticket_set_final_time, (new_time, new_time, data['trip_id']))
                     # Меняем время начала и статус рейса
                     cursor.execute(crimgo_db_crud.update_trip_set_status_scheduled, (new_time, new_time, data['trip_id']))
                     connection.commit()
@@ -359,6 +387,15 @@ async def get_dict_of_tickets_by_driver(from_user_id):
         return tickets
     except (Exception, Error) as error:
         print("Ошибка при работе с get_dict_of_tickets_by_driver", error)
+        return False
+
+async def get_dict_of_tickets_by_driver_drop_point(from_user_id):
+    try:
+        cursor.execute(crimgo_db_crud.select_tickets_by_driver_dp, (from_user_id,))
+        tickets = cursor.fetchall()
+        return tickets
+    except (Exception, Error) as error:
+        print("Ошибка при работе с get_dict_of_tickets_by_driver_drop_point", error)
         return False
 
 async def route_id_by_trip(from_user_id):
@@ -434,10 +471,14 @@ async def get_shuttle_position(callback):
     except (Exception, Error) as error:
         print("Ошибка при работе с get_shuttle_position", error)
 
-async def set_shuttle_position(callback):
+async def set_shuttle_position(callback, route_id_by_trip):
     try:
-        # Берем список точек посадки
-        cursor.execute(crimgo_db_crud.select_pickup_point_from_ticket, (callback.from_user.id, ))
+        if route_id_by_trip == 1:
+            # Берем список точек посадки
+            cursor.execute(crimgo_db_crud.select_pickup_point_from_ticket, (callback.from_user.id, ))
+        if route_id_by_trip == 2:
+            # Берем точки высадки
+            cursor.execute(crimgo_db_crud.select_drop_point_from_ticket, (callback.from_user.id, ))
         # pickup_point_list = cursor.fetchall()
         pickup_point_list = [item[0] for item in cursor.fetchall()]
 

@@ -5,7 +5,7 @@ from time import time
 from aiogram import Dispatcher, types
 from create_bot import dp, bot
 from database import crimgo_db, crimgo_db_crud
-from keyboards import kb_driver, kb_driver_shift, kb_start_point, kb_start_trip, kb_onboarding_trip, kb_continue_trip, kb_pass_absent, kb_retry_code
+from keyboards import kb_driver, kb_driver_shift, kb_start_point, kb_start_trip, kb_onboarding_trip, kb_continue_trip, kb_pass_absent, kb_retry_code, kb_outboarding_trip
 from aiogram.types import ReplyKeyboardRemove
 
 from aiogram.dispatcher import FSMContext
@@ -68,20 +68,21 @@ async def cmd_start_trip(callback: types.CallbackQuery):
 
     # Обновление статуса поездки
     await crimgo_db.set_trip_status(callback, 'scheduled', 'started')
-    
-    # Получить словарь билетов на рейс
-    tickets = await crimgo_db.get_dict_of_tickets_by_driver(callback.from_user.id)
 
     # Получить маршрут
     route = await crimgo_db.get_route(callback)
 
     if route == 1:
+        # Получить словарь билетов на рейс
+        tickets = await crimgo_db.get_dict_of_tickets_by_driver(callback.from_user.id)
         # Если шаттл на начальной а первый pp не равен начальной
         if (await crimgo_db.get_shuttle_position(callback)) == 1 and tickets[0][3] != 1:
-            await crimgo_db.set_shuttle_position(callback)
+            await crimgo_db.set_shuttle_position(callback, route)
     if route == 2:
+        # Получить словарь билетов на рейс
+        tickets = await crimgo_db.get_dict_of_tickets_by_driver(callback.from_user.id)
         if (await crimgo_db.get_shuttle_position(callback)) == 9 and tickets[0][3] != 9:
-            await crimgo_db.set_shuttle_position(callback)
+            await crimgo_db.set_shuttle_position(callback, route)
 
     # Текущее местоположение шаттла
     shuttle_position = await crimgo_db.get_shuttle_position(callback)
@@ -92,16 +93,25 @@ async def cmd_start_trip(callback: types.CallbackQuery):
 
     # Собираем остановки в одно сообщение
     text = ''
-    for i in tickets:
-        if shuttle_position == i[3]:
-            text = text +  '->'
-        if i[4] == 'cash':
-            text = text + 'Ост. {pp}, {time}, {seats}м. Оплата наличными: {total_amount}\n'.format(pp = i[0], time = (i[2] + config.TIME_OFFSET).strftime("%H:%M"), seats = i[1], total_amount = i[5])
-        else:
-            text = text + 'Ост. {pp}, {time}, {seats}м.\n'.format(pp = i[0], time = (i[2] + config.TIME_OFFSET).strftime("%H:%M"), seats = i[1])
-        if i == tickets[-1]:
-            text = text + 'Конечная ост. - {pp}, время прибытия - {time}'.format(pp = ending_station, time = trip_finish_time.strftime("%H:%M"))
-
+    if route == 1:
+        for i in tickets:
+            if shuttle_position == i[3]:
+                text = text +  '->'
+            if i[4] == 'cash':
+                text = text + 'Ост. {pp}, {time}, {seats}м. Оплата наличными: {total_amount}\n'.format(pp = i[0], time = (i[2] + config.TIME_OFFSET).strftime("%H:%M"), seats = i[1], total_amount = i[5])
+            else:
+                text = text + 'Ост. {pp}, {time}, {seats}м.\n'.format(pp = i[0], time = (i[2] + config.TIME_OFFSET).strftime("%H:%M"), seats = i[1])
+            if i == tickets[-1]:
+                text = text + 'Конечная ост. - {pp}, время прибытия - {time}'.format(pp = ending_station, time = trip_finish_time.strftime("%H:%M"))
+    if route == 2:
+        for i in tickets:
+            # Собираем остановки в одно сообщение
+            # text = text + 'Ост. {pp}, {time}, {seats}м\n'.format(pp = i[0], time = (i[2] + config.TIME_OFFSET).strftime("%H:%M"), seats = i[1])
+            if i[4] == 'cash':
+                text = text + 'Ост. {pp}, {time}, {seats}м. Оплата наличными: {total_amount}\n'.format(pp = i[0], time = (i[2] + config.TIME_OFFSET).strftime("%H:%M"), seats = i[1], total_amount = i[5])
+            else:
+                text = text + 'Ост. {pp}, {time}, {seats}м.\n'.format(pp = i[0], time = (i[2] + config.TIME_OFFSET).strftime("%H:%M"), seats = i[1])
+        text = text + 'Конечная {pp}, {time}'.format(pp = ending_station, time = trip_finish_time.strftime("%H:%M"))
     # Отобразить кнопку посадка
     await callback.message.answer(text, reply_markup=kb_onboarding_trip)
     
@@ -153,10 +163,16 @@ async def cmd_code_verification(message: types.Message, state: FSMContext):
 # Продожить поездку
 async def cmd_continue_trip(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
-    # await crimgo_db.set_shuttle_position(callback)
-    # Получить словарь билетов на рейс
-    tickets = await crimgo_db.get_dict_of_tickets_by_driver(callback.from_user.id)
-    
+    # await crimgo_db.set_shuttle_position(callback)    
+    route = await crimgo_db.get_route(callback)
+    # Если маршрут к морю
+    if route == 1:
+        # Получить словарь билетов на рейс
+        tickets = await crimgo_db.get_dict_of_tickets_by_driver(callback.from_user.id)
+        # Если маршрут от морю
+    if route == 2:
+        tickets = await crimgo_db.get_dict_of_tickets_by_driver_drop_point(callback.from_user.id)
+
     # Если позиция шатла равна последей pp, значит едем на конечную
     text = ''
     if (await crimgo_db.get_shuttle_position(callback)) == tickets[-1][3]:
@@ -171,17 +187,15 @@ async def cmd_continue_trip(callback: types.CallbackQuery, state: FSMContext):
         await callback.message.answer('Конечная ост. - {pp}, время прибытия - {time}'.format(pp = ending_station, time = trip_finish_time.strftime("%H:%M")), reply_markup=kb_continue_trip)
         async with state.proxy() as data:
             data['route'] = route_id_by_trip
-
+        # FSM конечная точка
         await FSMStartDriverShift.s_select_finish_point.set()
     else:
         # Поменять местоположение шаттла
-        await crimgo_db.set_shuttle_position(callback)
+        await crimgo_db.set_shuttle_position(callback, route)
 
         # Текущее местоположение шаттла
         shuttle_position = await crimgo_db.get_shuttle_position(callback)
-
-        route = await crimgo_db.get_route(callback)
-        
+            
         # Информация о конечной остановке
         ending_station = await crimgo_db.get_ending_station_by_route(route)
         trip_finish_time = await crimgo_db.get_trip_finish_time(callback.from_user.id)
@@ -197,8 +211,11 @@ async def cmd_continue_trip(callback: types.CallbackQuery, state: FSMContext):
                 text = text + 'Ост. {pp}, {time}, {seats}м.\n'.format(pp = i[0], time = (i[2] + config.TIME_OFFSET).strftime("%H:%M"), seats = i[1])
             if i == tickets[-1]:
                 text = text + 'Конечная {pp}, {time}'.format(pp = ending_station, time = trip_finish_time.strftime("%H:%M"))
-         # Отобразить кнопку посадка
-        await callback.message.answer(text, reply_markup=kb_onboarding_trip)    
+            # Отобразить кнопку посадка
+        if route == 1:
+            await callback.message.answer(text, reply_markup=kb_onboarding_trip)
+        if route == 2:
+            await callback.message.answer(text, reply_markup=kb_outboarding_trip)
 
 async def cmd_stop_shift(message: types.Message):
     await crimgo_db.stop_driver_shift(message)
