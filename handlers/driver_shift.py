@@ -115,7 +115,7 @@ async def cmd_onboarding(callback: types.CallbackQuery, state: FSMContext):
     # Получить кол-во билетов для остановки
     t_counter = await crimgo_db.get_dict_of_tickets_by_shuttle_position(callback.from_user.id, shuttle_position)
     
-    await callback.message.answer('Введите 4х значный секртеный код, который назовут пассажиры', reply_markup=ReplyKeyboardRemove())
+    await callback.message.answer('Введите 4х значный секретный код, который назовут пассажиры', reply_markup=ReplyKeyboardRemove())
     await callback.message.answer('Ожидаем {t_counter} код(а) на проверку'.format(t_counter = t_counter), reply_markup=kb_pass_absent)
     await FSMCodeVerification.s_code_input.set()    
     async with state.proxy() as data:

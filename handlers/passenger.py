@@ -112,7 +112,7 @@ async def process_successful_payment(message: types.Message, state: FSMContext):
 # Покупка билета
 async def cmd_order_trip(message: types.Message):
     await FSMOrder_trip.s_route_selection.set()
-    await message.answer('Среденее время ожидания начала поездки 20 минут. Более точное время будет известно позже.', reply_markup=kb_path) 
+    await message.answer('Среднее время ожидания начала поездки 20 минут. Более точное время будет известно позже.', reply_markup=kb_path) 
 
 # Выбор маршрута
 async def menu_route_selection(callback: types.CallbackQuery, state: FSMContext):
@@ -131,9 +131,9 @@ async def menu_seat_selection(callback: types.CallbackQuery, state: FSMContext):
             data['total_amount'] = int(data['seat'])*100
     await callback.message.answer(f'Вы выбрали {callback.data} мест(а)')
     if data['route'] == 'К морю':
-        await callback.message.answer('Выбирите наиболее  близкое к вам место посадки', reply_markup=kb_geoposition)
+        await callback.message.answer('Выберите наиболее  близкое к вам место посадки', reply_markup=kb_geoposition)
     if data['route'] == 'От моря':
-        await callback.message.answer('Выбирите ближайшую остановку к Вашему дому', reply_markup=kb_geoposition)
+        await callback.message.answer('Выберите ближайшую остановку к Вашему дому', reply_markup=kb_geoposition)
     await callback.answer()
 
 # Геопозиция
@@ -261,7 +261,7 @@ async def menu_handle_payment(callback: types.CallbackQuery, state: FSMContext):
                 if status == 'scheduled':
                     start_time = await crimgo_db.get_trip_start_time_by_id(state)
                     tickets = await crimgo_db.get_dict_of_tickets_by_trip(state)
-                    text = 'Внимение, время начало рейса обновлено: {start_time}\n'.format(start_time = (start_time + config.TIME_OFFSET).strftime("%H:%M"))
+                    text = 'Внимание, время начало рейса обновлено: {start_time}\n'.format(start_time = (start_time + config.TIME_OFFSET).strftime("%H:%M"))
                     # Собираем остановки в одно сообщение
                     for i in tickets:
                         text = text + 'Ост. {pp}, {time}, {seats}м\n'.format(pp = i[0], time = (i[2] + config.TIME_OFFSET).strftime("%H:%M"), seats = i[1])
