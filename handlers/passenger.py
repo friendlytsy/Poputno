@@ -54,7 +54,8 @@ async def get_contact(message: types.Message):
 
 # Чат поддержки
 async def cmd_contact_with_support(message: types.Message):
-    await bot.send_contact(chat_id = message.from_user.id, phone_number = '+7 978 173-26-90', first_name = 'Администрация CrimGo')
+    #await bot.send_contact(chat_id = message.from_user.id, phone_number = '+7 978 173-26-90', first_name = 'Администрация CrimGo')
+    await bot.send_message(chat_id=message.from_user.id, text="<a href='https://t.me/crimgoru'>Администрация CrimGo</a>", parse_mode="HTML")
 
 # Покупка абонемента
 async def cmd_subscription(message: types.Message, state: FSMContext):
@@ -206,8 +207,8 @@ async def menu_trip_confirm(callback: types.CallbackQuery, state: FSMContext):
                 await callback.message.answer('Ориентировочное время посадки в шаттл - {time}. Нажмите ОК для перехода к оплате'.format(time = aprox_time), reply_markup=kb_trip_confirmation)
                 await callback.answer()
             else:
-                if trip_id is None or False:
-                    await callback.message.answer('К сожалению нет такого кол-ва доступных мест', reply_markup=kb_path)
+#               if trip_id is None or False:
+                await callback.message.answer('К сожалению нет такого кол-ва доступных мест в ближайшем рейсе.', reply_markup=kb_pass)
                 await callback.answer()
                 await state.finish()
         else:
