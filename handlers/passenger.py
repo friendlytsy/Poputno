@@ -110,9 +110,12 @@ async def process_successful_payment(message: types.Message, state: FSMContext):
     await state.finish()
 
 # Покупка билета
-async def cmd_order_trip(message: types.Message):
+async def cmd_order_trip(message: types.Message, state: FSMContext):
     await FSMOrder_trip.s_route_selection.set()
-    await message.answer('Среденее время ожидания начала поездки 20 минут. Более точное время будет известно позже.', reply_markup=kb_path) 
+    msg = await message.answer('Среденее время ожидания начала поездки 20 минут. Более точное время будет известно позже.', reply_markup=kb_path) 
+    # Сохраняем ИД сообщения
+    async with state.proxy() as data:
+        data['msg'] = msg.message_id
 
 # Выбор маршрута
 async def menu_route_selection(callback: types.CallbackQuery, state: FSMContext):
@@ -120,7 +123,14 @@ async def menu_route_selection(callback: types.CallbackQuery, state: FSMContext)
         await FSMOrder_trip.s_seat_selection.set()
         async with state.proxy() as data:
                 data['route'] = callback.data
-        await callback.message.answer('Выберете кол-во мест', reply_markup=kb_seat)
+                # Удаление предыдущего сообщения
+                await bot.delete_message(chat_id=callback.from_user.id, message_id=data['msg'])
+        
+        msg = await callback.message.answer('Выберете кол-во мест', reply_markup=kb_seat)
+        # Сохраняем ИД сообщения
+        async with state.proxy() as data:
+            data['msg'] = msg.message_id
+        
         await callback.answer()
     else:
         await callback.answer()
@@ -134,11 +144,17 @@ async def menu_seat_selection(callback: types.CallbackQuery, state: FSMContext):
         async with state.proxy() as data:
                 data['seat'] = callback.data
                 data['total_amount'] = int(data['seat'])*100
-        await callback.message.answer(f'Вы выбрали {callback.data} мест(а)')
+                # Удаление предыдущего сообщения
+                await bot.delete_message(chat_id=callback.from_user.id, message_id=data['msg'])
+        msg_seats = await callback.message.answer(f'Вы выбрали {callback.data} мест(а)')
         if data['route'] == 'К морю':
-            await callback.message.answer('Выбирите наиболее  близкое к вам место посадки', reply_markup=kb_geoposition)
+            msg = await callback.message.answer('Выбирите наиболее  близкое к вам место посадки', reply_markup=kb_geoposition)
         if data['route'] == 'От моря':
-            await callback.message.answer('Выбирите ближайшую остановку к Вашему дому', reply_markup=kb_geoposition)
+            msg = await callback.message.answer('Выбирите ближайшую остановку к Вашему дому', reply_markup=kb_geoposition)
+        # Сохраняем ИД сообщения
+        async with state.proxy() as data:
+            data['msg'] = msg.message_id
+            data['msg_seats'] = msg_seats.message_id
         await callback.answer()
     else:
         await callback.answer()
@@ -151,6 +167,9 @@ async def menu_pp_confirm(callback: types.CallbackQuery, state: FSMContext):
         if callback.data != 'Назад':
             await FSMOrder_trip.s_pp_confirmation.set()
             async with state.proxy() as data:
+                # Удаление предыдущего сообщения
+                await bot.delete_message(chat_id=callback.from_user.id, message_id=data['msg_seats'])
+                await bot.delete_message(chat_id=callback.from_user.id, message_id=data['msg'])
                 # Если маршрут к морю
                 if data['route'] == 'К морю':
                     data['pickup_point'] = callback.data
@@ -162,13 +181,16 @@ async def menu_pp_confirm(callback: types.CallbackQuery, state: FSMContext):
             pp_location = await crimgo_db.get_pp_location(callback.data, data['route'])
             await bot.send_location(chat_id=callback.from_user.id, latitude=pp_location[0], longitude=pp_location[1])
             if data['route'] == 'К морю':
-                await callback.message.answer('Вы выбрали остановку {pp}, нажмите подтвердить'.format(pp = data['pickup_point']), reply_markup=kb_pp_confirmation)
+                msg = await callback.message.answer('Вы выбрали остановку {pp}, нажмите подтвердить'.format(pp = data['pickup_point']), reply_markup=kb_pp_confirmation)
             if data['route'] == 'От моря':
-                await callback.message.answer('Вы выбрали остановку {dp}, нажмите подтвердить'.format(dp = data['drop_point']), reply_markup=kb_pp_confirmation)
+                msg = await callback.message.answer('Вы выбрали остановку {dp}, нажмите подтвердить'.format(dp = data['drop_point']), reply_markup=kb_pp_confirmation)
         else:
             await FSMOrder_trip.s_seat_selection.set()
-            await callback.message.answer('Выберете кол-во мест', reply_markup=kb_seat)
+            msg = await callback.message.answer('Выберете кол-во мест', reply_markup=kb_seat)
         await callback.answer()
+         # Сохраняем ИД сообщения
+        async with state.proxy() as data:
+            data['msg'] = msg.message_id
     else:
         await callback.answer()
         await state.finish()
@@ -181,7 +203,8 @@ async def menu_trip_confirm(callback: types.CallbackQuery, state: FSMContext):
             await FSMOrder_trip.s_trip_confirmation.set()
             async with state.proxy() as data:
                     data['pp_confirm'] = callback.data
-            
+                    # Удаление предыдущего сообщения
+                    await bot.delete_message(chat_id=callback.from_user.id, message_id=data['msg'])
             #########
             #########
             # если нет trip с указаным маршрутом, создаем его
