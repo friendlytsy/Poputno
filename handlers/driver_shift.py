@@ -143,8 +143,15 @@ async def cmd_code_verification(message: types.Message, state: FSMContext):
     while t_counter !=0:
         code = message.text
         # for code in codes:
-        if (await crimgo_db.verify_pass_code(message, code)) is True:
+        code_status = await crimgo_db.verify_pass_code(message, code)
+        if code_status is True:
             await message.reply('Код {code} ✔'.format(code = code), reply_markup=ReplyKeyboardRemove())
+            if t_counter > 1:
+                # Завершение состояния s_code_input
+                await state.finish()
+                await message.answer('Необходимо ввести cледующий код', reply_markup=kb_retry_code)
+                # Завершаем функцию cmd_code_verification
+                break
         else:
             await message.reply('Код {code} 𐄂'.format(code = code), reply_markup=ReplyKeyboardRemove())
             # Завершение состояния s_code_input
