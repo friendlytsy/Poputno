@@ -49,8 +49,13 @@ async def get_driver_contact(message: types.Message, state: FSMContext):
         await message.answer('Произошла ошбика, попробуйте позже', reply_markup=kb_generic_start)
     await state.finish()
 
+async def cmd_get_driver_contact_with_support(message: types.Message):
+    await bot.send_message(chat_id=message.from_user.id, text="<a href='https://t.me/crimgoru'>Администрация CrimGo</a>", parse_mode="HTML")
+
+
 def register_handlers_driver(dp: Dispatcher):
     dp.register_message_handler(cmd_get_driver_menu, Text(equals='Водитель', ignore_case=False))
     dp.register_message_handler(get_driver_name, state = FSMRegisterDriver.s_share_name)
     dp.register_message_handler(get_driver_contact, content_types=['contact'], state = FSMRegisterDriver.s_share_contact)
+    dp.register_message_handler(cmd_get_driver_contact_with_support, Text(equals='Написать в поддержку', ignore_case=False))
     

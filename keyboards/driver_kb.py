@@ -53,6 +53,11 @@ kb_retry_code = InlineKeyboardMarkup()
 btn_request_retry = InlineKeyboardButton(text = 'Посадка', callback_data='Посадка')
 kb_retry_code.add(btn_request_retry)
 
+kb_outboarding_trip = InlineKeyboardMarkup()
+btn_outboarding_trip = InlineKeyboardButton(text = 'Высадка', callback_data='Продолжить')
+kb_outboarding_trip.add(btn_outboarding_trip)
+
+
 # s_verify_code = State()
 #kb_verify_code = InlineKeyboardMarkup()
 #btn_verify_code = InlineKeyboardButton(text = '')
