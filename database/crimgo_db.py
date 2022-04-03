@@ -453,6 +453,16 @@ async def get_dict_of_tickets_by_trip(state):
         print("Ошибка при работе с get_dict_of_tickets_by_trip", error)
         return False
 
+async def get_dict_of_drop_points_by_trip(state):
+    try:
+        async with state.proxy() as data:
+            cursor.execute(crimgo_db_crud.select_drop_points_by_trip, (data['trip_id'],))
+            tickets = cursor.fetchall()
+            return tickets
+    except (Exception, Error) as error:
+        print("Ошибка при работе с get_dict_of_drop_points_by_trip", error)
+        return False
+
 async def get_trip_start_time_by_id(state):
     try:
         async with state.proxy() as data:
@@ -543,11 +553,11 @@ async def check_shuttle_name_and_status(name):
         print("Ошибка при работе с check_shuttle_name_and_status", error) 
 
 # Время подбора пасажира в билете
-async def ticket_pp_time(ticket_id):
+async def ticket_dp_time(ticket_id):
     try:
-        cursor.execute(crimgo_db_crud.select_ticket_pp_time, (ticket_id,))
-        pp_time = cursor.fetchone()[0]
-        return pp_time
+        cursor.execute(crimgo_db_crud.select_ticket_dp_time, (ticket_id,))
+        dp_time = cursor.fetchone()[0]
+        return dp_time
     except (Exception, Error) as error:
         print("Ошибка при работе с ticket_pp_time", error) 
 

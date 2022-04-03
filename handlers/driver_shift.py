@@ -81,6 +81,7 @@ async def cmd_start_trip(callback: types.CallbackQuery):
     if route == 2:
         # Получить словарь билетов на рейс
         tickets = await crimgo_db.get_dict_of_tickets_by_driver(callback.from_user.id)
+        drop_points = await crimgo_db.get_dict_of_tickets_by_driver_drop_point(callback.from_user.id)
         if (await crimgo_db.get_shuttle_position(callback)) == 9 and tickets[0][3] != 9:
             await crimgo_db.set_shuttle_position(callback, route)
 
@@ -104,13 +105,13 @@ async def cmd_start_trip(callback: types.CallbackQuery):
             if i == tickets[-1]:
                 text = text + 'Конечная ост. - {pp}, время прибытия - {time}'.format(pp = ending_station, time = trip_finish_time.strftime("%H:%M"))
     if route == 2:
-        for i in tickets:
+        for i in drop_points:
             # Собираем остановки в одно сообщение
             # text = text + 'Ост. {pp}, {time}, {seats}м\n'.format(pp = i[0], time = (i[2] + config.TIME_OFFSET).strftime("%H:%M"), seats = i[1])
             if i[4] == 'cash':
-                text = text + 'Ост. {pp}, {time}, {seats}м. Оплата наличными: {total_amount}\n'.format(pp = i[0], time = (i[2] + config.TIME_OFFSET).strftime("%H:%M"), seats = i[1], total_amount = i[5])
+                text = text + 'Высадка ост. {pp}, время {time}, {seats}м. Оплата наличными: {total_amount}\n'.format(pp = i[0], time = (i[2] + config.TIME_OFFSET).strftime("%H:%M"), seats = i[1], total_amount = i[5])
             else:
-                text = text + 'Ост. {pp}, {time}, {seats}м.\n'.format(pp = i[0], time = (i[2] + config.TIME_OFFSET).strftime("%H:%M"), seats = i[1])
+                text = text + 'Высадка ост. {pp}, время {time}, {seats}м.\n'.format(pp = i[0], time = (i[2] + config.TIME_OFFSET).strftime("%H:%M"), seats = i[1])
         text = text + 'Конечная {pp}, {time}'.format(pp = ending_station, time = trip_finish_time.strftime("%H:%M"))
     # Отобразить кнопку посадка
     await callback.message.answer(text, reply_markup=kb_onboarding_trip)

@@ -312,7 +312,7 @@ select_tickets_by_driver_dp = '''SELECT p.name, booked_seats, final_drop_time, p
                                                                             WHERE status = \'started\' AND shuttle_id = (SELECT id 
                                                                                                                             FROM shuttle 
                                                                                                                             WHERE driver_id = %s)) 
-                                ORDER BY final_pickup_time'''
+                                ORDER BY final_drop_time'''
 
 # Возвращает билеты по позиции шаттла и водителю
 select_tickets_by_shuttle_position = '''SELECT COUNT(*) FROM ticket WHERE pickup_point = %s AND status = \'active\' AND trip_id = (SELECT id 
@@ -333,6 +333,8 @@ select_status_from_trip = '''SELECT status FROM trip WHERE id = %s'''
 
 # Возвращает билеты по поездке
 select_tickets_by_trip = '''SELECT p.name, booked_seats, final_pickup_time FROM ticket AS t, pickup_point AS p WHERE t.pickup_point = p.id AND trip_id = %s ORDER BY final_pickup_time'''
+
+select_drop_points_by_trip = '''SELECT p.name, booked_seats, final_drop_time FROM ticket AS t, pickup_point AS p WHERE t.drop_point = p.id AND trip_id = %s ORDER BY final_drop_time'''
 
 # Возвращает время начала поездки
 select_start_time_from_trip = '''SELECT start_time FROM trip WHERE id = %s'''
@@ -365,7 +367,7 @@ update_passenger_decrease_trip = '''UPDATE passenger SET available_trips = avail
 select_shuttle_name_and_status = '''SELECT EXISTS (SELECT name FROM shuttle where name = %s AND driver_id IS NULL)'''
 
 # Возвращает время из билета 
-select_ticket_pp_time = '''SELECT final_pickup_time FROM ticket WHERE id = %s'''
+select_ticket_dp_time = '''SELECT final_drop_time FROM ticket WHERE id = %s'''
 
 # Возвращает ИД маршрута
 select_route_from_trip = '''SELECT route FROM trip WHERE status = \'started\' AND shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s)'''
