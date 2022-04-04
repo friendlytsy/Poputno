@@ -436,7 +436,7 @@ async def get_message_id_and_text(state):
 async def trip_status(state):
     try:
         async with state.proxy() as data:
-            cursor.execute(crimgo_db_crud.select_status_from_trip, (data['trip_id']))
+            cursor.execute(crimgo_db_crud.select_status_from_trip, (data['trip_id'], ))
             status = cursor.fetchone()[0]
             return status
     except (Exception, Error) as error:
