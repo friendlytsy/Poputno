@@ -62,8 +62,7 @@ async def cmd_order_trip(message: types.Message, state: FSMContext):
     await FSMOrder_trip.s_route_selection.set()
     msg = await message.answer('Среденее время ожидания начала поездки 20 минут. Более точное время будет известно позже.', reply_markup=kb_path) 
     # Сохраняем ИД сообщения
-    async with state.proxy() as data:
-        data['msg'] = msg.message_id
+    await update_msg_list([msg.message_id], state)
 
 # Выбор маршрута
 async def menu_route_selection(callback: types.CallbackQuery, state: FSMContext):
@@ -71,16 +70,18 @@ async def menu_route_selection(callback: types.CallbackQuery, state: FSMContext)
         await FSMOrder_trip.s_seat_selection.set()
         async with state.proxy() as data:
                 data['route'] = callback.data
-                # Удаление предыдущего сообщения
-                await bot.delete_message(chat_id=callback.from_user.id, message_id=data['msg'])
-        
+                # # Удаление предыдущего сообщения
+                await remove_messages(callback.from_user.id, data['msg'])
+
         msg = await callback.message.answer('Выберете кол-во мест', reply_markup=kb_seat)
         # Сохраняем ИД сообщения
-        async with state.proxy() as data:
-            data['msg'] = msg.message_id
-        
+        await update_msg_list([msg.message_id], state)
         await callback.answer()
     else:
+        # Удаление предыдущего сообщения
+        async with state.proxy() as data:
+            await remove_messages(callback.from_user.id, data['msg'])
+
         await callback.answer()
         await state.finish()
         await callback.message.answer('Заказ отменен', reply_markup=kb_pass)
@@ -93,18 +94,19 @@ async def menu_seat_selection(callback: types.CallbackQuery, state: FSMContext):
                 data['seat'] = callback.data
                 data['total_amount'] = int(data['seat'])*100
                 # Удаление предыдущего сообщения
-                await bot.delete_message(chat_id=callback.from_user.id, message_id=data['msg'])
+                await remove_messages(callback.from_user.id, data['msg'])
         msg_seats = await callback.message.answer(f'Вы выбрали {callback.data} мест(а)')
         if data['route'] == 'К морю':
             msg = await callback.message.answer('Выбирите наиболее  близкое к вам место посадки', reply_markup=kb_geoposition)
         if data['route'] == 'От моря':
             msg = await callback.message.answer('Выбирите ближайшую остановку к Вашему дому', reply_markup=kb_geoposition)
         # Сохраняем ИД сообщения
-        async with state.proxy() as data:
-            data['msg'] = msg.message_id
-            data['msg_seats'] = msg_seats.message_id
+        await update_msg_list([msg.message_id, msg_seats.message_id], state)
         await callback.answer()
     else:
+        # Удаление предыдущего сообщения
+        async with state.proxy() as data:
+            await remove_messages(callback.from_user.id, data['msg'])
         await callback.answer()
         await state.finish()
         await callback.message.answer('Заказ отменен', reply_markup=kb_pass)    
@@ -116,8 +118,7 @@ async def menu_pp_confirm(callback: types.CallbackQuery, state: FSMContext):
             await FSMOrder_trip.s_pp_confirmation.set()
             async with state.proxy() as data:
                 # Удаление предыдущего сообщения
-                await bot.delete_message(chat_id=callback.from_user.id, message_id=data['msg_seats'])
-                await bot.delete_message(chat_id=callback.from_user.id, message_id=data['msg'])
+                await remove_messages(callback.from_user.id, data['msg'])
                 # Если маршрут к морю
                 if data['route'] == 'К морю':
                     data['pickup_point'] = callback.data
@@ -127,19 +128,28 @@ async def menu_pp_confirm(callback: types.CallbackQuery, state: FSMContext):
                     data['pickup_point'] = 'Успенская церковь'
                     data['drop_point'] = callback.data
             pp_location = await crimgo_db.get_pp_location(callback.data, data['route'])
-            await bot.send_location(chat_id=callback.from_user.id, latitude=pp_location[0], longitude=pp_location[1])
+            msg_location = await bot.send_location(chat_id=callback.from_user.id, latitude=pp_location[0], longitude=pp_location[1])
+            async with state.proxy() as data:
+                data['msg_location'] = [msg_location.message_id]
             if data['route'] == 'К морю':
                 msg = await callback.message.answer('Вы выбрали остановку {pp}, нажмите подтвердить'.format(pp = data['pickup_point']), reply_markup=kb_pp_confirmation)
             if data['route'] == 'От моря':
                 msg = await callback.message.answer('Вы выбрали остановку {dp}, нажмите подтвердить'.format(dp = data['drop_point']), reply_markup=kb_pp_confirmation)
+            # Сохраняем ИД сообщения
+            await update_msg_list([msg.message_id], state)
         else:
+            async with state.proxy() as data:
+                # Удаление предыдущего сообщения
+                await remove_messages(callback.from_user.id, data['msg'])
             await FSMOrder_trip.s_seat_selection.set()
             msg = await callback.message.answer('Выберете кол-во мест', reply_markup=kb_seat)
+            # Сохраняем ИД сообщения
+            await update_msg_list([msg.message_id], state)
         await callback.answer()
-         # Сохраняем ИД сообщения
-        async with state.proxy() as data:
-            data['msg'] = msg.message_id
     else:
+        # Удаление предыдущего сообщения
+        async with state.proxy() as data:
+            await remove_messages(callback.from_user.id, data['msg'])
         await callback.answer()
         await state.finish()
         await callback.message.answer('Заказ отменен', reply_markup=kb_pass)
@@ -152,7 +162,7 @@ async def menu_trip_confirm(callback: types.CallbackQuery, state: FSMContext):
             async with state.proxy() as data:
                     data['pp_confirm'] = callback.data
                     # Удаление предыдущего сообщения
-                    await bot.delete_message(chat_id=callback.from_user.id, message_id=data['msg'])
+                    await remove_messages(callback.from_user.id, data['msg'])
             #########
             #########
             # если нет trip с указаным маршрутом, создаем его
@@ -160,7 +170,9 @@ async def menu_trip_confirm(callback: types.CallbackQuery, state: FSMContext):
             if (trip_id is None):
                 trip_id = await crimgo_db.create_trip(state)
                 if (trip_id is False):
-                    await callback.message.answer('Сервис временно не доступен, попробуйте позже')
+                    msg = await callback.message.answer('Сервис временно не доступен, попробуйте позже')
+                    # Сохраняем ИД сообщения
+                    await update_msg_list([msg.message_id], state)
                     await callback.answer()
                     await state.finish()
                 else:
@@ -175,11 +187,15 @@ async def menu_trip_confirm(callback: types.CallbackQuery, state: FSMContext):
                 aprox_time = await crimgo_db.calculate_raw_pickup_time(state)
                 async with state.proxy() as data:
                     data['aprox_time'] = aprox_time
-                await callback.message.answer('Ориентировочное время посадки в шаттл - {time}. Нажмите ОК для перехода к оплате'.format(time = aprox_time), reply_markup=kb_trip_confirmation)
+                msg = await callback.message.answer('Ориентировочное время посадки в шаттл - {time}. Нажмите ОК для перехода к оплате'.format(time = aprox_time), reply_markup=kb_trip_confirmation)
+                # Сохраняем ИД сообщения
+                await update_msg_list([msg.message_id], state)
                 await callback.answer()
             else:
 #               if trip_id is None or False:
                 await callback.message.answer('К сожалению нет такого кол-ва доступных мест в ближайшем рейсе.', reply_markup=kb_pass)
+                # Сохраняем ИД сообщения
+                await update_msg_list([msg.message_id], state)
                 await callback.answer()
                 await state.finish()
         else:
@@ -188,10 +204,20 @@ async def menu_trip_confirm(callback: types.CallbackQuery, state: FSMContext):
             async with state.proxy() as data:
                 route = data['route']
             if route == 'К морю':
-                await callback.message.answer('Выбирите наиболее  близкое к вам место посадки', reply_markup=kb_geoposition)
+                msg = await callback.message.answer('Выбирите наиболее  близкое к вам место посадки', reply_markup=kb_geoposition)
             if route == 'От моря':
-                await callback.message.answer('Выбирите ближайшую остановку к Вашему дому', reply_markup=kb_geoposition)
+                msg = await callback.message.answer('Выбирите ближайшую остановку к Вашему дому', reply_markup=kb_geoposition)
+            async with state.proxy() as data:
+                # Удаление предыдущего сообщения
+                await remove_messages(callback.from_user.id, data['msg'])
+                await remove_messages(callback.from_user.id, data['msg_location'])
+            # Сохраняем ИД сообщения
+            await update_msg_list([msg.message_id], state)
     else:
+        async with state.proxy() as data:
+            # Удаление предыдущего сообщения
+            await remove_messages(callback.from_user.id, data['msg'])
+            await remove_messages(callback.from_user.id, data['msg_location'])
         await callback.answer()
         await state.finish()
         await callback.message.answer('Заказ отменен', reply_markup=kb_pass)
@@ -202,7 +228,10 @@ async def menu_payment_type(callback: types.CallbackQuery, state: FSMContext):
         await FSMOrder_trip.s_payment_type.set()
         async with state.proxy() as data:
             data['trip_confirm'] = callback.data
-        await callback.message.answer('Вы заказали {seat} мест(а), стоимость {total_amount} рублей'.format(seat = data['seat'], total_amount= data['total_amount']), reply_markup=kb_payment_type)
+            # Удаление предыдущего сообщения
+            await remove_messages(callback.from_user.id, data['msg'])
+        msg = await callback.message.answer('Вы заказали {seat} мест(а), стоимость {total_amount} рублей'.format(seat = data['seat'], total_amount= data['total_amount']), reply_markup=kb_payment_type)
+        await update_msg_list([msg.message_id], state)
     else:
         await crimgo_db.restore_booked_seats(state)
         await callback.message.answer('Заказ отменен')
@@ -221,7 +250,9 @@ async def menu_handle_payment(callback: types.CallbackQuery, state: FSMContext):
             data['provider_payment_charge_id'] = 'null'
             data['otp'] = randrange(1000, 9999, 1)
             data['pass_id'] = callback.from_user.id
-
+            # Удаление предыдущего сообщения
+            await remove_messages(callback.from_user.id, data['msg'])
+        
         payment_id = await crimgo_db.successful_payment(state)
         msg = await callback.message.answer('Оплатите водителю сумму `{total_amount}` РУБ при посадке! Приятного пользования сервисом CrimGo. Код для посадки `{otp}`'.format(total_amount=int(data['seat'])*100, otp=data['otp']))
         # Запись в БД данных для пуща пассажиру
@@ -317,6 +348,20 @@ async def menu_handle_payment(callback: types.CallbackQuery, state: FSMContext):
                         await bot.edit_message_text(chat_id = push[0], message_id = push[1], text = text, reply_markup=None)
         
         await state.finish()
+
+# Удаления сообщений в списке msg_id_list
+async def remove_messages(chat_id, msg_id_list):
+    for msg in msg_id_list:
+        await bot.delete_message(chat_id=chat_id, message_id=msg)
+
+# Добавления сообщений в data['msg']
+async def update_msg_list(msg_id_list, state: FSMContext):
+    async with state.proxy() as data:
+        # Пустой лист
+        msg_list = []
+        # Добавляем ИД в список
+        msg_list.extend(msg_id_list)
+        data['msg'] = msg_list
 
 def register_handlers_client(dp: Dispatcher):
     dp.register_message_handler(commands_start, commands=['start', 'help'])
