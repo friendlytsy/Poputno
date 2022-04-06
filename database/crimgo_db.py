@@ -176,8 +176,10 @@ async def create_trip(state):
     try:
         async with state.proxy() as data:
             # создание рейса и привязка шаттла, бросит исключение из-за "null value in column "shuttle_id" violates not-null constraint"
-            # TODO выбор шатла из нескольких
-            cursor.execute(crimgo_db_crud.insert_into_trip, ('awaiting_passengers', data['route'],  datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now() + config.MAX_WAIT_TIME, datetime.datetime.now() + config.MAX_WAIT_TIME + config.TRVL_TIME))
+            cursor.execute(crimgo_db_crud.select_from_shuttle_order_by_timestamp, (data['route'], data['route']))
+            shuttle_id = cursor.fetchone()[0]
+
+            cursor.execute(crimgo_db_crud.insert_into_trip, (shuttle_id ,'awaiting_passengers', data['route'],  datetime.datetime.now(), shuttle_id,datetime.datetime.now(), datetime.datetime.now() + config.MAX_WAIT_TIME, datetime.datetime.now() + config.MAX_WAIT_TIME + config.TRVL_TIME))
             trip_id = cursor.fetchone()[0]
             connection.commit()
             return trip_id

@@ -244,7 +244,10 @@ update_shuttle_remove_driver = '''UPDATE shuttle SET (driver_id, current_positio
 update_driver_remove_shift = '''UPDATE driver SET (on_shift, timestamp) = (false, %s)'''
 
 # Создание записи поездки
-insert_into_trip = '''INSERT INTO trip (shuttle_id, status, route, creation_time, available_seats, timestamp, start_time, finish_time) VALUES ((SELECT id FROM shuttle WHERE driver_id IS NOT NULL), %s, (SELECT id FROM route WHERE name = %s), %s, (SELECT capacity FROM shuttle WHERE driver_id IS NOT NULL), %s, %s, %s) RETURNING id'''
+insert_into_trip = '''INSERT INTO trip (shuttle_id, status, route, creation_time, available_seats, timestamp, start_time, finish_time) VALUES (%s, %s, (SELECT id FROM route WHERE name = %s), %s, (SELECT capacity FROM shuttle WHERE id = %s), %s, %s, %s) RETURNING id'''
+
+# Возвращает ИД шаттла на маршоуте, который стоит дольше всех
+select_from_shuttle_order_by_timestamp = '''SELECT id FROM shuttle WHERE driver_id is not null AND current_position between (select min(id) from pickup_point where route_id = (SELECT id FROM route WHERE name = %s)) and (select max(id) from pickup_point where route_id = (SELECT id FROM route WHERE name = %s)) order by timestamp DESC'''
 
 # Возвращает ИД поедок с статусом ждем пассажиров
 select_trip_id_status_awaiting_pass = '''SELECT id FROM trip WHERE route = (SELECT id FROM route WHERE name = %s) AND available_seats > 0 and status = \'awaiting_passengers\''''
