@@ -60,7 +60,7 @@ async def cmd_contact_with_support(message: types.Message):
 # Покупка билета
 async def cmd_order_trip(message: types.Message, state: FSMContext):
     await FSMOrder_trip.s_route_selection.set()
-    msg = await message.answer('Среденее время ожидания начала поездки 20 минут. Более точное время будет известно позже.', reply_markup=kb_path) 
+    msg = await message.answer('Среднее время ожидания начала поездки 20 минут. Более точное время будет известно позже.', reply_markup=kb_path) 
     # Сохраняем ИД сообщения
     await update_msg_list([msg.message_id], state)
 
