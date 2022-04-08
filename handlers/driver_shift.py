@@ -82,8 +82,8 @@ async def cmd_start_trip(callback: types.CallbackQuery):
         # Получить словарь билетов на рейс
         tickets = await crimgo_db.get_dict_of_tickets_by_driver(callback.from_user.id)
         drop_points = await crimgo_db.get_dict_of_tickets_by_driver_drop_point(callback.from_user.id)
-        if (await crimgo_db.get_shuttle_position(callback)) == 9 and tickets[0][3] != 9:
-            await crimgo_db.set_shuttle_position(callback, route)
+        # if (await crimgo_db.get_shuttle_position(callback)) == 9 and tickets[0][3] != 9:
+        #     await crimgo_db.set_shuttle_position(callback, route)
 
     # Текущее местоположение шаттла
     shuttle_position = await crimgo_db.get_shuttle_position(callback)
@@ -184,7 +184,6 @@ async def cmd_continue_trip(callback: types.CallbackQuery, state: FSMContext):
     # Если позиция шатла равна последей pp, значит едем на конечную
     text = ''
     if (await crimgo_db.get_shuttle_position(callback)) == tickets[-1][3]:
-        # TODO менять статус рейса + нормальное сообщение водителю
         # ИД маршрута
         route_id_by_trip = await crimgo_db.route_id_by_trip(callback.from_user.id)
         # Инфо о конечной
@@ -250,10 +249,20 @@ async def cmd_finish_trip(callback: types.CallbackQuery, state: FSMContext):
     if await crimgo_db.is_shuttle_binded(state) is not None or False:
         await callback.message.answer('Спасибо! Вы указали, что стоите на ост. {start_point}. Скоро вам назначат рейс, ожидайте'.format(start_point = start_point), reply_markup=kb_driver_shift)
         # await crimgo_db.set_shuttle_message_id(callback.message.message_id, state)
-        # Записать чат message id
-        trip_details = await crimgo_db.check_available_trip(state)
+        # Если есть поездки
+        trip_details = await crimgo_db.check_available_trip_after_trip(callback.from_user.id)
         if trip_details is not None:
-            await callback.message.answer('Поздравляем, Вам назначен рейс {trip_id} "{route}". Старт в {start_time} от "{start_point}"'.format(trip_id = trip_details[0], route = trip_details[1], start_time = (config.TIME_OFFSET + trip_details[2]).strftime("%H:%M"), start_point = data['start_point']), reply_markup=kb_start_trip)    
+            await callback.message.answer('Поздравляем, Вам назначен рейс {trip_id} "{route}". Старт в {start_time} от "{start_point}"'.format(trip_id = trip_details[0], route = trip_details[1], start_time = (config.TIME_OFFSET + trip_details[2]).strftime("%H:%M"), start_point = start_point), reply_markup=kb_driver_shift)    
+            async with state.proxy() as data:
+                data['trip_id'] = trip_details[0]
+            # Сохраняем ИД сообщения для обновления
+            await crimgo_db.set_shuttle_message_id(callback.message.message_id, state)
+            # Информация о чате для пуша водителю
+            driver_chat_id = await crimgo_db.get_driver_chat_id(state)
+            text = await crimgo_db.get_message_text_trip_id(state)
+            msg = await bot.send_message(driver_chat_id[0], text, reply_markup=kb_start_trip)
+            # Обновляем ИД сообщения
+            await crimgo_db.set_shuttle_message_id(msg.message_id, state)
     else:
         await message.reply('Произошла ошибка, повторите позже', reply_markup=ReplyKeyboardRemove())
 
