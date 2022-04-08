@@ -176,14 +176,36 @@ async def create_trip(state):
     try:
         async with state.proxy() as data:
             # создание рейса и привязка шаттла, бросит исключение из-за "null value in column "shuttle_id" violates not-null constraint"
-            # TODO выбор шатла из нескольких
-            cursor.execute(crimgo_db_crud.insert_into_trip, ('awaiting_passengers', data['route'],  datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now() + config.MAX_WAIT_TIME, datetime.datetime.now() + config.MAX_WAIT_TIME + config.TRVL_TIME))
+            # Поиск шаттла на начальной остановке маршрута, сортировка по времени простоя
+            cursor.execute(crimgo_db_crud.select_from_shuttle_order_by_timestamp, (data['route'], ))
+            shuttle_id = cursor.fetchone()
+
+            # Поиск ближайшего шаттла на противополжном маршруте, не считаю начальную остановку
+            if shuttle_id is None:
+                cursor.execute(crimgo_db_crud.select_from_shuttle_opposite_route, (data['opposite'], data['opposite']))
+                shuttle_id = cursor.fetchone()
+            # Поиск шаттла на противополжной начальной остановке
+            if shuttle_id is None:
+                cursor.execute(crimgo_db_crud.select_from_shuttle_order_by_timestamp, (data['opposite'], ))
+                shuttle_id = cursor.fetchone()
+            cursor.execute(crimgo_db_crud.insert_into_trip, (shuttle_id[0] ,'awaiting_passengers', data['route'],  datetime.datetime.now(), shuttle_id,datetime.datetime.now(), datetime.datetime.now() + config.MAX_WAIT_TIME, datetime.datetime.now() + config.MAX_WAIT_TIME + config.TRVL_TIME))
             trip_id = cursor.fetchone()[0]
             connection.commit()
             return trip_id
     except (Exception, Error) as error:
         print("Ошибка при работе с create_trip", error)
         return False
+
+# Обнлвление времени
+async def update_trip_set_time_delta(state, ADD_DELTA_TIME):
+    try:
+        async with state.proxy() as data:
+            cursor.execute(crimgo_db_crud.update_trip_set_time_delta, (ADD_DELTA_TIME, ADD_DELTA_TIME, data['trip_id']))
+            connection.commit()
+            return True
+    except (Exception, Error) as error:
+        print("Ошибка при работе с update_trip_set_time_delta", error)
+        return False    
 
 # Проверка, если ли поездка по маршруту
 async def is_trip_with_route(state):
@@ -221,10 +243,6 @@ async def restore_booked_seats(state):
 async def create_ticket(state, payment_id):
     try:
         async with state.proxy() as data:
-            # # Время создания
-            # cursor.execute(crimgo_db_crud.select_trip_creation_time, (data['trip_id'],))
-            # trip_creation_time = cursor.fetchone()[0]
-            
             # ИД маршрута
             cursor.execute(crimgo_db_crud.select_route_by_trip_id, (data['trip_id'], ))
             route = cursor.fetchone()[0]
@@ -295,6 +313,17 @@ async def check_available_trip(state):
         print("Ошибка при работе с check_available_trip", error)
         return False
 
+# Проверка доступных поездок после выполенния маршрута
+async def check_available_trip_after_trip(driver_id):
+    try:
+        cursor.execute(crimgo_db_crud.select_trip_available_by_driver, (driver_id,))
+        trip_details = cursor.fetchone()
+        return trip_details
+    except (Exception, Error) as error:
+        print("Ошибка при работе с check_available_trip_after_trip", error)
+        return False
+
+
 # Детали поездки
 async def trip_details(state):
     try:
@@ -357,6 +386,18 @@ async def get_driver_chat_id(state):
     except (Exception, Error) as error:
         print("Ошибка при работе с get_driver_chat_id", error)
         return False
+
+# Получить соббщение по поездке
+async def get_message_text_trip_id(state):
+    try:
+        async with state.proxy() as data:
+            cursor.execute(crimgo_db_crud.select_message_by_trip_id, (data['trip_id'],))
+            text = cursor.fetchone()[0]
+            return text
+    except (Exception, Error) as error:
+        print("Ошибка при работе с get_message_text_trip_id", error)
+        return False
+
 
 # is_first_ticket
 async def is_first_ticket(state):
@@ -436,7 +477,7 @@ async def get_message_id_and_text(state):
 async def trip_status(state):
     try:
         async with state.proxy() as data:
-            cursor.execute(crimgo_db_crud.select_status_from_trip, (data['trip_id']))
+            cursor.execute(crimgo_db_crud.select_status_from_trip, (data['trip_id'], ))
             status = cursor.fetchone()[0]
             return status
     except (Exception, Error) as error:
@@ -625,3 +666,14 @@ async def get_pass_trip_details(state):
             return pass_trip_details
     except (Exception, Error) as error:
         print("Ошибка при работе с get_pass_trip_details", error)
+
+async def is_push_needed(state):
+    try:
+        async with state.proxy() as data:
+            cursor.execute(crimgo_db_crud.select_trip_status, (data['trip_id'],))
+            trip_status = cursor.fetchone()[0]
+            if trip_status == 'awaiting_passengers' or 'scheduled':
+                return True
+            else: return False
+    except (Exception, Error) as error:
+        print("Ошибка при работе с is_push_needed", error)

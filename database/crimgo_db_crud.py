@@ -244,7 +244,16 @@ update_shuttle_remove_driver = '''UPDATE shuttle SET (driver_id, current_positio
 update_driver_remove_shift = '''UPDATE driver SET (on_shift, timestamp) = (false, %s)'''
 
 # Создание записи поездки
-insert_into_trip = '''INSERT INTO trip (shuttle_id, status, route, creation_time, available_seats, timestamp, start_time, finish_time) VALUES ((SELECT id FROM shuttle WHERE driver_id IS NOT NULL), %s, (SELECT id FROM route WHERE name = %s), %s, (SELECT capacity FROM shuttle WHERE driver_id IS NOT NULL), %s, %s, %s) RETURNING id'''
+insert_into_trip = '''INSERT INTO trip (shuttle_id, status, route, creation_time, available_seats, timestamp, start_time, finish_time) VALUES (%s, %s, (SELECT id FROM route WHERE name = %s), %s, (SELECT capacity FROM shuttle WHERE id = %s), %s, %s, %s) RETURNING id'''
+
+# Обновление времени поездки
+update_trip_set_time_delta = '''UPDATE trip SET (start_time, finish_time) = (start_time + %s, finish_time + %s) WHERE id = %s'''
+
+# Возвращает ИД шаттла на маршоуте, который стоит дольше всех
+select_from_shuttle_order_by_timestamp = '''SELECT id FROM shuttle WHERE driver_id is not null AND current_position = (select min(id) from pickup_point where route_id = (SELECT id FROM route WHERE name = %s)) order by timestamp DESC'''
+
+# Возвращает ближайшие шаттлы на противополжном маршруте, не считаю начальную остановку
+select_from_shuttle_opposite_route = '''SELECT id FROM shuttle WHERE driver_id is not null AND current_position between (select min(id)+1 from pickup_point where route_id = (SELECT id FROM route WHERE name = %s)) and (select max(id) from pickup_point where route_id = (SELECT id FROM route WHERE name = %s)) order by timestamp DESC'''
 
 # Возвращает ИД поедок с статусом ждем пассажиров
 select_trip_id_status_awaiting_pass = '''SELECT id FROM trip WHERE route = (SELECT id FROM route WHERE name = %s) AND available_seats > 0 and status = \'awaiting_passengers\''''
@@ -267,6 +276,9 @@ insert_into_ticket = '''INSERT INTO ticket (payment_id, trip_id, pickup_point, b
 
 # Возвращает детали поездки, t.id, r.name, t.start_time
 select_trip_available = '''SELECT t.id, r.name, t.creation_time FROM trip AS t, route AS r WHERE t.shuttle_id = (SELECT id FROM shuttle WHERE name = %s) AND t.status = \'scheduled\' AND t.route = r.id'''
+
+# Возвращает поездкт по видителю
+select_trip_available_by_driver = '''SELECT t.id, r.name, t.start_time FROM trip AS t, route AS r WHERE t.shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s) AND t.status = \'scheduled\' OR t.status = \'awaiting_passengers\' AND t.route = r.id'''
 
 select_trip_details = '''SELECT t.id, r.name, t.start_time, t.finish_time FROM trip AS t, route as r WHERE t.id = %s and r.id = t.route'''
 
@@ -401,4 +413,10 @@ select_trip_start_time = '''SELECT start_time FROM trip WHERE status = \'awaitin
 select_route_by_trip_id = '''SELECT route FROM trip WHERE id = %s'''
 
 # Возвращает точки высадки
-select_drop_point_from_ticket = '''SELECT drop_point FROM ticket WHERE trip_id = (SELECT id FROM trip WHERE status = \'started\' AND shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s)) ORDER BY final_pickup_time'''
+select_drop_point_from_ticket = '''SELECT drop_point FROM ticket WHERE trip_id = (SELECT id FROM trip WHERE status = \'started\' AND shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s)) ORDER BY final_drop_time'''
+
+# Возвращает статус поездки
+select_trip_status = '''SELECT t.status FROM trip AS t, shuttle AS s, pickup_point AS p WHERE t.id = %s and s.current_position = (select min(id) from pickup_point WHERE route_id = t.route)'''
+
+# Возвращает сообщение для пуша 
+select_message_by_trip_id = '''SELECT text FROM message WHERE trip_id = %s'''

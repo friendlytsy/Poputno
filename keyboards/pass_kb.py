@@ -2,11 +2,11 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMar
 
 #   /menu
 btn_order_trip = KeyboardButton('Заказать поездку') 
-btn_order_subscription = KeyboardButton('Купить абонемент')
+#btn_order_subscription = KeyboardButton('Купить абонемент')
 btn_contact_support = KeyboardButton('Чат поддержки')
 
 kb_pass = ReplyKeyboardMarkup(resize_keyboard=True)
-kb_pass.add(btn_order_trip).add(btn_contact_support).add(btn_order_subscription)
+kb_pass.add(btn_order_trip).add(btn_contact_support)
 
 #   s_path_selection = State()
 kb_path = InlineKeyboardMarkup()
@@ -55,9 +55,9 @@ kb_trip_confirmation.add(btn_trip_accept).add(btn_trip_cancel)
 
 #    s_payment_type = State()
 kb_payment_type = InlineKeyboardMarkup()
-btn_type_card = InlineKeyboardButton(text = 'Оплата картой', callback_data='Оплата картой')
+#btn_type_card = InlineKeyboardButton(text = 'Оплата картой', callback_data='Оплата картой')
 btn_type_cash = InlineKeyboardButton(text = 'Наличкой водителю', callback_data='Наличкой водителю')
-kb_payment_type.add(btn_type_card).add(btn_type_cash)
+kb_payment_type.add(btn_type_cash)
 
 #    s_cash_canceled = State()
 kb_cash_canceled = InlineKeyboardMarkup()
