@@ -420,3 +420,9 @@ select_trip_status = '''SELECT t.status FROM trip AS t, shuttle AS s, pickup_poi
 
 # Возвращает сообщение для пуша 
 select_message_by_trip_id = '''SELECT text FROM message WHERE trip_id = %s'''
+
+# Возвращает стоимость одного места
+select_price_from_pp = '''SELECT price FROM pickup_point WHERE name = %s AND route_id = (SELECT id FROM route WHERE name = %s)'''
+
+# Возвращает стоимость поездки
+select_total_amount = '''SELECT total_amount FROM payment WHERE id = %s'''

@@ -677,3 +677,19 @@ async def is_push_needed(state):
             else: return False
     except (Exception, Error) as error:
         print("Ошибка при работе с is_push_needed", error)
+
+async def get_pickup_point_price(pickup_point, route):
+    try:
+        cursor.execute(crimgo_db_crud.select_price_from_pp, (pickup_point, route))
+        price = cursor.fetchone()[0]
+        return price
+    except (Exception, Error) as error:
+        print("Ошибка при работе с get_pickup_point_price", error)
+
+async def get_total_amount(payment_id):
+    try:
+        cursor.execute(crimgo_db_crud.select_total_amount, (payment_id, ))
+        total_amount = cursor.fetchone()[0]
+        return total_amount
+    except (Exception, Error) as error:
+        print("Ошибка при работе с get_total_amount", error)
