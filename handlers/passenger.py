@@ -100,9 +100,9 @@ async def menu_seat_selection(callback: types.CallbackQuery, state: FSMContext):
                 await remove_messages(callback.from_user.id, data['msg'])
         msg_seats = await callback.message.answer(f'Вы выбрали {callback.data} мест(а)')
         if data['route'] == 'К морю':
-            msg = await callback.message.answer('Выбирите наиболее  близкое к вам место посадки', reply_markup=kb_geoposition)
+            msg = await callback.message.answer('Выберите наиболее  близкое к вам место посадки', reply_markup=kb_geoposition)
         if data['route'] == 'От моря':
-            msg = await callback.message.answer('Выбирите ближайшую остановку к Вашему дому', reply_markup=kb_geoposition)
+            msg = await callback.message.answer('Выберите ближайшую остановку к Вашему дому', reply_markup=kb_geoposition)
         # Сохраняем ИД сообщения
         await update_msg_list([msg.message_id, msg_seats.message_id], state)
         await callback.answer()
@@ -214,9 +214,9 @@ async def menu_trip_confirm(callback: types.CallbackQuery, state: FSMContext):
             async with state.proxy() as data:
                 route = data['route']
             if route == 'К морю':
-                msg = await callback.message.answer('Выбирите наиболее  близкое к вам место посадки', reply_markup=kb_geoposition)
+                msg = await callback.message.answer('Выберите наиболее  близкое к вам место посадки', reply_markup=kb_geoposition)
             if route == 'От моря':
-                msg = await callback.message.answer('Выбирите ближайшую остановку к Вашему дому', reply_markup=kb_geoposition)
+                msg = await callback.message.answer('Выберите ближайшую остановку к Вашему дому', reply_markup=kb_geoposition)
             async with state.proxy() as data:
                 # Удаление предыдущего сообщения
                 await remove_messages(callback.from_user.id, data['msg'])
@@ -319,14 +319,14 @@ async def push_messages(state, ticket_id, driver_chat_id):
                     # Если к морю то собираем собщения через pickup_point 
                     if data['route'] == 'К морю':
                         tickets = await crimgo_db.get_dict_of_tickets_by_trip(state)
-                        text = 'Внимение, время начало рейса обновлено: {start_time}\n'.format(start_time = (start_time + config.TIME_OFFSET).strftime("%H:%M"))
+                        text = 'Внимание, время начало рейса обновлено: {start_time}\n'.format(start_time = (start_time + config.TIME_OFFSET).strftime("%H:%M"))
                         # Собираем остановки в одно сообщение
                         for i in tickets:
                             text = text + 'Ост. {pp}, {time}, {seats}м\n'.format(pp = i[0], time = (i[2] + config.TIME_OFFSET).strftime("%H:%M"), seats = i[1])
                     # Если от моря то собираем сообщения через drop_point
                     if data['route'] == 'От моря':
                         drop_point = await crimgo_db.get_dict_of_drop_points_by_trip(state)
-                        text = 'Внимение, время начало рейса обновлено: {start_time}\n'.format(start_time = (start_time + config.TIME_OFFSET).strftime("%H:%M"))
+                        text = 'Внимание, время начало рейса обновлено: {start_time}\n'.format(start_time = (start_time + config.TIME_OFFSET).strftime("%H:%M"))
                         # Собираем остановки в одно сообщение
                         for i in drop_point:
                             text = text + 'Ост. {pp}, {time}, {seats}м\n'.format(pp = i[0], time = (i[2] + config.TIME_OFFSET).strftime("%H:%M"), seats = i[1])
@@ -361,14 +361,14 @@ async def push_messages(state, ticket_id, driver_chat_id):
                     # Если к морю то собираем собщения через pickup_point 
                     if data['route'] == 'К морю':
                         tickets = await crimgo_db.get_dict_of_tickets_by_trip(state)
-                        text = 'Внимение, время начало рейса обновлено: {start_time}\n'.format(start_time = (start_time + config.TIME_OFFSET).strftime("%H:%M"))
+                        text = 'Внимание, время начало рейса обновлено: {start_time}\n'.format(start_time = (start_time + config.TIME_OFFSET).strftime("%H:%M"))
                         # Собираем остановки в одно сообщение
                         for i in tickets:
                             text = text + 'Ост. {pp}, {time}, {seats}м\n'.format(pp = i[0], time = (i[2] + config.TIME_OFFSET).strftime("%H:%M"), seats = i[1])
                     # Если от моря то собираем сообщения через drop_point
                     if data['route'] == 'От моря':
                         drop_point = await crimgo_db.get_dict_of_drop_points_by_trip(state)
-                        text = 'Внимение, время начало рейса обновлено: {start_time}\n'.format(start_time = (start_time + config.TIME_OFFSET).strftime("%H:%M"))
+                        text = 'Внимание, время начало рейса обновлено: {start_time}\n'.format(start_time = (start_time + config.TIME_OFFSET).strftime("%H:%M"))
                         # Собираем остановки в одно сообщение
                         for i in drop_point:
                             text = text + 'Ост. {pp}, {time}, {seats}м\n'.format(pp = i[0], time = (i[2] + config.TIME_OFFSET).strftime("%H:%M"), seats = i[1])
