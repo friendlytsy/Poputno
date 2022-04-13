@@ -95,7 +95,6 @@ async def menu_seat_selection(callback: types.CallbackQuery, state: FSMContext):
         await FSMOrder_trip.s_geolocation.set()
         async with state.proxy() as data:
                 data['seat'] = callback.data
-                data['total_amount'] = int(data['seat'])*100
                 # Удаление предыдущего сообщения
                 await remove_messages(callback.from_user.id, data['msg'])
         msg_seats = await callback.message.answer(f'Вы выбрали {callback.data} мест(а)')
@@ -164,6 +163,10 @@ async def menu_trip_confirm(callback: types.CallbackQuery, state: FSMContext):
             await FSMOrder_trip.s_trip_confirmation.set()
             async with state.proxy() as data:
                     data['pp_confirm'] = callback.data
+                    # Ищем цена билета и считаем итог
+                    price = await crimgo_db.get_pickup_point_price(data['pickup_point'], data['route'])
+                    if price is not None: 
+                        data['total_amount'] = int(data['seat'])*price
                     # Удаление предыдущего сообщения
                     await remove_messages(callback.from_user.id, data['msg'])
             #########
@@ -264,7 +267,8 @@ async def menu_handle_payment(callback: types.CallbackQuery, state: FSMContext):
             await remove_messages(callback.from_user.id, data['msg'])
         
         payment_id = await crimgo_db.successful_payment(state)
-        msg = await callback.message.answer('Оплатите водителю сумму `{total_amount}` РУБ при посадке! Приятного пользования сервисом CrimGo. Код для посадки `{otp}`'.format(total_amount=int(data['seat'])*100, otp=data['otp']))
+        total_amount = await crimgo_db.get_total_amount(payment_id)
+        msg = await callback.message.answer('Оплатите водителю сумму `{total_amount}` РУБ при посадке! Приятного пользования сервисом CrimGo. Код для посадки `{otp}`'.format(total_amount=total_amount, otp=data['otp']))
         # Запись в БД данных для пуша пассажиру
         await crimgo_db.save_pass_message_id(callback.from_user.id, msg.message_id, msg.chat.id)
         # Проверка нужен ли пуш, если None, route ближейшего шаттла не равно data['route'] билета
