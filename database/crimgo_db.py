@@ -107,13 +107,11 @@ async def successful_payment(state):
         async with state.proxy() as data:
             cursor.execute(crimgo_db_crud.insert_into_payment, (data['total_amount'], data['telegram_payment_charge_id'], data['provider_payment_charge_id'], data['pass_id'], data['payment_type'], datetime.datetime.now()))
             payment_id = cursor.fetchone()[0]
+            connection.commit()
 
             cursor.execute(crimgo_db_crud.udpate_passenger_increment_trip, (data['seat'], datetime.datetime.now(), data['pass_id']))
             connection.commit()
-
-            # TODO
-            # cursor.execute('SELECT currval(pg_get_serial_sequence(\'payment\',\'id\'))')
-            # payment_id = cursor.fetchone()[0]
+            
             return payment_id
     except (Exception, Error) as error:
         print("Ошибка при работе с successful_payment", error)
