@@ -282,7 +282,7 @@ async def menu_handle_payment(callback: types.CallbackQuery, state: FSMContext):
         
         # Пуш или сохранения сообщение водителя
         if is_push_needed:
-            await push_messages(state, ticket_id, driver_chat_id)
+            await push_messages(callback.from_user.id, state, ticket_id, driver_chat_id)
         else:
             # Сохраняем сообщение в базу
             if data['route'] == 'К морю':
@@ -297,7 +297,7 @@ async def menu_handle_payment(callback: types.CallbackQuery, state: FSMContext):
         await state.finish()
 
 # Пуш водителю или пасажару
-async def push_messages(state, ticket_id, driver_chat_id):
+async def push_messages(user_id, state, ticket_id, driver_chat_id):
     async with state.proxy() as data:
             # Если чат ID не пуст
         if driver_chat_id[0] is not None:
@@ -335,16 +335,31 @@ async def push_messages(state, ticket_id, driver_chat_id):
                         for i in drop_point:
                             text = text + 'Ост. {pp}, {time}, {seats}м\n'.format(pp = i[0], time = (i[2] + config.TIME_OFFSET).strftime("%H:%M"), seats = i[1])
                    
-                    # Получаем обновленные чат ИД и прочее для обновления сообщения
+                    # Получаем обновленные чат ИД
                     driver_chat_id = await crimgo_db.get_driver_chat_id(state)
 
-                    # Редактируем последее сообщение
-                    await bot.edit_message_text(chat_id = driver_chat_id[0], message_id = driver_chat_id[1], text = text, reply_markup=kb_start_trip)
+                    # Редактируем последее сообщение(удаляем/отправляем и сохраняем)
+                    # await bot.edit_message_text(chat_id = driver_chat_id[0], message_id = driver_chat_id[1], text = text, reply_markup=kb_start_trip)
+                    await bot.delete_message(chat_id = driver_chat_id[0], message_id = driver_chat_id[1])
+                    updated_msg = bot.send_message(chat_id = driver_chat_id[0], text = text, reply_markup = kb_start_trip)
+                    await crimgo_db.set_shuttle_message_id(updated_msg.message_id, state)
+                    await crimgo_db.save_message_id_and_text(state, text)
+
+
                     # Редактируем сообщения пользователей
                     pass_trip_details = await crimgo_db.get_pass_trip_details(state)
                     for push in pass_trip_details:
-                        text = 'Внимание, новое время посадки: {time}\nМесто посадки: {pp}\nКод посадки: {otp}'.format(time = (push[2]).strftime("%H:%M"), pp = push[3], otp = push[4])
-                        await bot.edit_message_text(chat_id = push[0], message_id = push[1], text = text, reply_markup=None)                
+                        try: 
+                            text = 'Внимание, новое время посадки: {time}\nМесто посадки: {pp}\nКод посадки: {otp}'.format(time = (push[2]).strftime("%H:%M"), pp = push[3], otp = push[4])
+                            await bot.delete_message(chat_id = push[0], message_id = push[1])
+                            updated_msg = await bot.send_message(chat_id = push[0], text = text, reply_markup = None)
+                            # Запись в БД данных для пуша пассажиру
+                            await crimgo_db.save_pass_message_id(user_id, updated_msg.message_id, updated_msg.chat.id)
+                            # await bot.edit_message_text(chat_id = push[0], message_id = push[1], text = text, reply_markup=None)
+                        except (Exception) as error:
+                            print("Ошибка при отправке сообщения пользователю: ", error)
+                        # text = 'Внимание, новое время посадки: {time}\nМесто посадки: {pp}\nКод посадки: {otp}'.format(time = (push[2]).strftime("%H:%M"), pp = push[3], otp = push[4])
+                        # await bot.edit_message_text(chat_id = push[0], message_id = push[1], text = text, reply_markup=None)                
 
             else:
                 # Нотификация водителя о новых билетах
@@ -378,12 +393,24 @@ async def push_messages(state, ticket_id, driver_chat_id):
                             text = text + 'Ост. {pp}, {time}, {seats}м\n'.format(pp = i[0], time = (i[2] + config.TIME_OFFSET).strftime("%H:%M"), seats = i[1])
                    
                     # Редактируем последее сообщение
-                    await bot.edit_message_text(chat_id = driver_chat_id[0], message_id = driver_chat_id[1], text = text, reply_markup=kb_start_trip)
+                    # await bot.edit_message_text(chat_id = driver_chat_id[0], message_id = driver_chat_id[1], text = text, reply_markup=kb_start_trip)
+                    await bot.delete_message(chat_id = driver_chat_id[0], message_id = driver_chat_id[1])
+                    updated_msg = await bot.send_message(chat_id = driver_chat_id[0], text = text, reply_markup = kb_start_trip)
+                    await crimgo_db.set_shuttle_message_id(updated_msg.message_id, state)
+                    await crimgo_db.save_message_id_and_text(state, text)
+
                     # Редактируем сообщения пользователей
                     pass_trip_details = await crimgo_db.get_pass_trip_details(state)
                     for push in pass_trip_details:
-                        text = 'Внимание, новое время посадки: {time}\nМесто посадки: {pp}\nКод посадки: {otp}'.format(time = (push[2]).strftime("%H:%M"), pp = push[3], otp = push[4])
-                        await bot.edit_message_text(chat_id = push[0], message_id = push[1], text = text, reply_markup=None)
+                        try: 
+                            text = 'Внимание, новое время посадки: {time}\nМесто посадки: {pp}\nКод посадки: {otp}'.format(time = (push[2]).strftime("%H:%M"), pp = push[3], otp = push[4])
+                            await bot.delete_message(chat_id = push[0], message_id = push[1])
+                            updated_msg = await bot.send_message(chat_id = push[0], text = text, reply_markup = None)
+                            # Запись в БД данных для пуша пассажиру
+                            await crimgo_db.save_pass_message_id(user_id, updated_msg.message_id, updated_msg.chat.id)
+                            # await bot.edit_message_text(chat_id = push[0], message_id = push[1], text = text, reply_markup=None)
+                        except (Exception) as error:
+                            print("Ошибка при отправке сообщения пользователю: ", error)
 
 # Удаления сообщений в списке msg_id_list
 async def remove_messages(chat_id, msg_id_list):
