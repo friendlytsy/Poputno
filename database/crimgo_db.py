@@ -449,7 +449,7 @@ async def route_id_by_trip(from_user_id):
 async def get_dict_of_tickets_by_shuttle_position(from_user_id, shuttle_position):
     try:
         cursor.execute(crimgo_db_crud.select_tickets_by_shuttle_position, (shuttle_position, from_user_id))
-        pp_tickets = cursor.fetchone()[0]
+        pp_tickets = [item[0] for item in cursor.fetchall()]
         return pp_tickets
     except (Exception, Error) as error:
         print("Ошибка при работе с get_dict_of_tickets_by_shuttle_position", error)
@@ -581,6 +581,25 @@ async def verify_pass_code(message, code):
         return False
     except (Exception, Error) as error:
         print("Ошибка при работе с verify_pass_code", error) 
+
+async def cancel_pass_code(message, code):
+    # Позиция шаттла
+    try:
+        cursor.execute(crimgo_db_crud.select_current_possition_from_shuttle, (message.from_user.id,))
+        shuttle_position = cursor.fetchone()[0]
+        # Ищем пас ID и забронированые места
+        cursor.execute(crimgo_db_crud.select_pass_seat, (code, message.from_user.id))
+        pass_id_seats = cursor.fetchone()
+        # Гасим билет и отнимаем поедку
+        cursor.execute(crimgo_db_crud.update_ticket_status_set_cancel, (shuttle_position, message.from_user.id, pass_id_seats[1], code))
+        if cursor.rowcount == 1:
+            cursor.execute(crimgo_db_crud.update_passenger_decrease_trip, (pass_id_seats[1], pass_id_seats[0]))
+            if cursor.rowcount == 1:
+                connection.commit()
+                return True
+        return False
+    except (Exception, Error) as error:
+        print("Ошибка при работе с cancel_pass_code", error) 
 
 # Проверка существует ли шаттл
 async def check_shuttle_name_and_status(name):

@@ -327,7 +327,7 @@ select_tickets_by_driver_dp = '''SELECT p.name, booked_seats, final_drop_time, p
                                 ORDER BY final_drop_time'''
 
 # Возвращает билеты по позиции шаттла и водителю
-select_tickets_by_shuttle_position = '''SELECT COUNT(*) FROM ticket WHERE pickup_point = %s AND status = \'active\' AND trip_id = (SELECT id 
+select_tickets_by_shuttle_position = '''SELECT otp FROM ticket WHERE pickup_point = %s AND status = \'active\' AND trip_id = (SELECT id 
                                                                             FROM trip 
                                                                             WHERE status = \'started\' AND shuttle_id = (SELECT id FROM shuttle 
                                                                                                                             WHERE driver_id = %s))'''
@@ -371,6 +371,9 @@ select_pass_seat = '''SELECT p.pass_id, t.booked_seats FROM payment AS p, ticket
 
 # Обновляет статус билета
 update_ticket_status = '''UPDATE ticket SET status = \'used\' WHERE status = \'active\' AND pickup_point = %s AND trip_id = (SELECT id FROM trip where status = \'started\' AND shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s)) AND booked_seats = %s AND otp = %s'''
+
+# Обновляет статус билета, статус cancel
+update_ticket_status_set_cancel = '''UPDATE ticket SET status = \'cancel\' WHERE status = \'active\' AND pickup_point = %s AND trip_id = (SELECT id FROM trip where status = \'started\' AND shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s)) AND booked_seats = %s AND otp = %s'''
 
 # Обновляет кол-во поездок у пассажира
 update_passenger_decrease_trip = '''UPDATE passenger SET available_trips = available_trips - %s WHERE telegram_id = %s'''

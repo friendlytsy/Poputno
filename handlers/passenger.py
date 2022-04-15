@@ -347,7 +347,7 @@ async def push_messages(user_id, state, ticket_id, driver_chat_id):
                     # Редактируем последее сообщение(удаляем/отправляем и сохраняем)
                     # await bot.edit_message_text(chat_id = driver_chat_id[0], message_id = driver_chat_id[1], text = text, reply_markup=kb_start_trip)
                     await bot.delete_message(chat_id = driver_chat_id[0], message_id = driver_chat_id[1])
-                    updated_msg = bot.send_message(chat_id = driver_chat_id[0], text = text, reply_markup = kb_start_trip)
+                    updated_msg = await bot.send_message(chat_id = driver_chat_id[0], text = text, reply_markup = kb_start_trip)
                     await crimgo_db.set_shuttle_message_id(updated_msg.message_id, state)
                     await crimgo_db.save_message_id_and_text(state, text)
 
