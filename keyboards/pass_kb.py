@@ -30,7 +30,7 @@ kb_seat.row(btn_seat_1, btn_seat_2, btn_seat_3, btn_seat_4, btn_seat_5).add(btn_
 kb_geoposition = InlineKeyboardMarkup()
 btn_pp_1 = InlineKeyboardButton(text = 'ЖК Ришелье Шато', callback_data='ЖК Ришелье Шато')
 btn_pp_2 = InlineKeyboardButton(text = 'Гурзуф Ривьера', callback_data='Гурзуф Ривьера')
-btn_pp_3 = InlineKeyboardButton(text = 'ЖК Шато ЛУвр', callback_data='ЖК Шато ЛУвр')
+btn_pp_3 = InlineKeyboardButton(text = 'ЖК Шато Лувр', callback_data='ЖК Шато Лувр')
 btn_pp_4 = InlineKeyboardButton(text = 'ЖК Шато Ла Рош', callback_data='ЖК Шато Ла Рош')
 btn_pp_5 = InlineKeyboardButton(text = 'ЖК Белый Дом', callback_data='ЖК Белый Дом')
 btn_pp_6 = InlineKeyboardButton(text = 'ЖК Фамилия', callback_data='ЖК Фамилия')

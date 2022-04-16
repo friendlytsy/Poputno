@@ -16,10 +16,10 @@ thanks_for_sharing = 'Спасибо'
 
 error_try_later = 'Произошла ошбика, попробуйте позже'
 
-current_otps = 'Выбирете пароли которые назовут пассажиры'
+current_otps = 'Выберите пароли которые назовут пассажиры'
 
-pass_onboarding = 'Посадка'
+pass_onboarding = '  ✅  '
 
-pass_absent = 'Нет пассажира'
+pass_absent = '  ❌  '
 
 trip_continue = 'Для продолжения поездки, нажмите `Продолжить`'
