@@ -1,3 +1,4 @@
+from hashlib import new
 import psycopg2
 import datetime
 
@@ -360,11 +361,18 @@ async def trip_status_review(state):
                     # берем время создания поездки
                     time_offset = soonest_pp_time - datetime.datetime.now()
                 
+                # Поиск времени старта
+                cursor.execute(crimgo_db_crud.select_trip_start_time, (data['trip_id'],))
+                trip_start_time = cursor.fetchone()[0]
+
                 # Если в запасе есть 10 минут, меняем время старта и прибытия    
                 if (time_offset > config.MIN_WAIT_TIME):
-                    # Меняю время подбора для пассажиров
                     new_time = time_offset - config.MIN_WAIT_TIME
-
+                    # Если новое время старта больше текущего
+                    if (trip_start_time - new_time < datetime.datetime.now()): 
+                        new_time = trip_start_time - datetime.datetime.now()
+                    
+                    # Меняю время подбора для пассажиров
                     cursor.execute(crimgo_db_crud.update_ticket_set_final_time, (new_time, new_time, data['trip_id']))
                     # Меняем время начала и статус рейса
                     cursor.execute(crimgo_db_crud.update_trip_set_status_scheduled, (new_time, new_time, data['trip_id']))
