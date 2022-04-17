@@ -109,6 +109,7 @@ CREATE TABLE IF NOT EXISTS public.pickup_point
     time_to_pp integer NOT NULL,
     latitude double precision NOT NULL,
     longitude double precision NOT NULL,
+    price integer NOT NULL DEFAULT 0,
     CONSTRAINT pickup_point_pkey PRIMARY KEY (id),
     CONSTRAINT pp_ref_rout_fk FOREIGN KEY (route_id)
         REFERENCES public.route (id) MATCH SIMPLE
