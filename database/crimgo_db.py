@@ -710,3 +710,11 @@ async def get_total_amount(payment_id):
         return total_amount
     except (Exception, Error) as error:
         print("Ошибка при работе с get_total_amount", error)
+
+async def is_any_on_shift():
+    try:
+        cursor.execute(crimgo_db_crud.select_count_from_driver_where_on_shift)
+        count = cursor.fetchone()[0]
+        return count
+    except (Exception, Error) as error:
+        print("Ошибка при работе с is_any_on_shift", error)

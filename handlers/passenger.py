@@ -177,42 +177,50 @@ async def menu_trip_confirm(callback: types.CallbackQuery, state: FSMContext):
                     await remove_messages(callback.from_user.id, data['msg'])
             #########
             #########
-            # если нет trip с указаным маршрутом, создаем его
-            trip_id = await crimgo_db.is_trip_with_route(state)
-            if (trip_id is None):
-                trip_id = await crimgo_db.create_trip(state)
-                # Определить 
-                if (trip_id is False):
-                    msg = await callback.message.answer(passenger_text.service_temporary_unavailable)
+            if (await crimgo_db.is_any_on_shift() != 0):
+                # если нет trip с указаным маршрутом, создаем его
+                trip_id = await crimgo_db.is_trip_with_route(state)
+                if (trip_id is None):
+                    trip_id = await crimgo_db.create_trip(state)
+                    # Определить 
+                    if (trip_id is False):
+                        msg = await callback.message.answer(passenger_text.service_temporary_unavailable)
+                        # Сохраняем ИД сообщения
+                        await update_msg_list([msg.message_id], state)
+                        await callback.answer()
+                        await state.finish()
+                    else:
+                        async with state.proxy() as data:
+                            data['trip_id'] = trip_id    
+                else:
+                    async with state.proxy() as data:
+                        data['trip_id'] = trip_id 
+
+                # Проверка нужен ли пуш, если None, route ближейшего шаттла не равно data['route'] билета
+                is_push_needed = await crimgo_db.is_push_needed(state)
+                if is_push_needed is None:
+                    # Обновляем время в поездке, прибавялем 30 минуту
+                    ADD_DELTA_TIME = timedelta(minutes = 30)
+                    await crimgo_db.update_trip_set_time_delta(state, ADD_DELTA_TIME)
+
+                # Проверка на кол-во доступных мест
+                if (await crimgo_db.seat_availability(state)) is True:
+                    aprox_time = await crimgo_db.calculate_raw_pickup_time(state)
+                    async with state.proxy() as data:
+                        data['aprox_time'] = aprox_time
+                    msg = await callback.message.answer(passenger_text.approx_pickup_time.format(time = aprox_time), reply_markup=kb_trip_confirmation)
+                    # Сохраняем ИД сообщения
+                    await update_msg_list([msg.message_id], state)
+                    await callback.answer()
+                else:
+                    # if trip_id is None or False:
+                    msg = await callback.message.answer(passenger_text.no_such_seats_amount, reply_markup=kb_pass)
                     # Сохраняем ИД сообщения
                     await update_msg_list([msg.message_id], state)
                     await callback.answer()
                     await state.finish()
-                else:
-                    async with state.proxy() as data:
-                        data['trip_id'] = trip_id 
             else:
-                async with state.proxy() as data:
-                    data['trip_id'] = trip_id 
-            # Проверка нужен ли пуш, если None, route ближейшего шаттла не равно data['route'] билета
-            is_push_needed = await crimgo_db.is_push_needed(state)
-            if is_push_needed is None:
-                # Обновляем время в поездке, прибавялем 30 минуту
-                ADD_DELTA_TIME = timedelta(minutes = 30)
-                await crimgo_db.update_trip_set_time_delta(state, ADD_DELTA_TIME)
-
-            # Проверка на кол-во доступных мест
-            if (await crimgo_db.seat_availability(state)) is True:
-                aprox_time = await crimgo_db.calculate_raw_pickup_time(state)
-                async with state.proxy() as data:
-                    data['aprox_time'] = aprox_time
-                msg = await callback.message.answer(passenger_text.approx_pickup_time.format(time = aprox_time), reply_markup=kb_trip_confirmation)
-                # Сохраняем ИД сообщения
-                await update_msg_list([msg.message_id], state)
-                await callback.answer()
-            else:
-#               if trip_id is None or False:
-                await callback.message.answer(passenger_text.no_such_seats_amount, reply_markup=kb_pass)
+                msg = await callback.message.answer(passenger_text.service_temporary_unavailable)
                 # Сохраняем ИД сообщения
                 await update_msg_list([msg.message_id], state)
                 await callback.answer()

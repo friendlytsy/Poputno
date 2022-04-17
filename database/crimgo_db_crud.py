@@ -429,3 +429,6 @@ select_price_from_pp = '''SELECT price FROM pickup_point WHERE name = %s AND rou
 
 # Возвращает стоимость поездки
 select_total_amount = '''SELECT total_amount FROM payment WHERE id = %s'''
+
+# Возвращает кол-во водителей в смене
+select_count_from_driver_where_on_shift = '''SELECT COUNT(*) FROM driver WHERE on_shift = true'''
