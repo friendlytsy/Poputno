@@ -433,3 +433,12 @@ select_total_amount = '''SELECT total_amount FROM payment WHERE id = %s'''
 
 # Возвращает кол-во водителей в смене
 select_count_from_driver_where_on_shift = '''SELECT COUNT(*) FROM driver WHERE on_shift = true'''
+
+# Возвращает имя водителя по ID поездки
+select_name_from_driver = '''SELECT name FROM driver WHERE telegram_id = (SELECT driver_id FROM shuttle WHERE id = (SELECT shuttle_id FROM trip WHERE id = %s))'''
+
+# Возвращает точку высадки
+select_drop_point_from_pp = '''SELECT name FROM pickup_point WHERE id = (SELECT drop_point FROM ticket WHERE trip_id = %s)'''
+
+# Возвращает тотал 
+select_total_amount_from_payment_by_trip_id = '''SELECT total_amount FROM payment WHERE id = (SELECT payment_id FROM ticket WHERE trip_id = %s)'''

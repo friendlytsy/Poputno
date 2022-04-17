@@ -726,3 +726,27 @@ async def is_any_on_shift():
         return count
     except (Exception, Error) as error:
         print("Ошибка при работе с is_any_on_shift", error)
+
+async def get_driver_name_by_trip(trip_id):
+    try:
+        cursor.execute(crimgo_db_crud.select_name_from_driver, (trip_id, ) )
+        driver_name = cursor.fetchone()[0]
+        return driver_name
+    except (Exception, Error) as error:
+        print("Ошибка при работе с get_driver_name_by_trip", error)
+
+async def get_drop_point_by_trip(trip_id):
+    try:
+        cursor.execute(crimgo_db_crud.select_drop_point_from_pp, (trip_id, ) )
+        drop_point = cursor.fetchone()[0]
+        return drop_point
+    except (Exception, Error) as error:
+        print("Ошибка при работе с get_drop_point_by_trip", error)
+
+async def get_total_amount_by_trip(trip_id):
+    try:
+        cursor.execute(crimgo_db_crud.select_total_amount_from_payment_by_trip_id, (trip_id, ) )
+        total_amount = cursor.fetchone()[0]
+        return total_amount
+    except (Exception, Error) as error:
+        print("Ошибка при работе с get_total_amount_by_trip", error)
