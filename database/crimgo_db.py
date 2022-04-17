@@ -1,3 +1,4 @@
+from hashlib import new
 import psycopg2
 import datetime
 
@@ -107,13 +108,11 @@ async def successful_payment(state):
         async with state.proxy() as data:
             cursor.execute(crimgo_db_crud.insert_into_payment, (data['total_amount'], data['telegram_payment_charge_id'], data['provider_payment_charge_id'], data['pass_id'], data['payment_type'], datetime.datetime.now()))
             payment_id = cursor.fetchone()[0]
+            connection.commit()
 
             cursor.execute(crimgo_db_crud.udpate_passenger_increment_trip, (data['seat'], datetime.datetime.now(), data['pass_id']))
             connection.commit()
-
-            # TODO
-            # cursor.execute('SELECT currval(pg_get_serial_sequence(\'payment\',\'id\'))')
-            # payment_id = cursor.fetchone()[0]
+            
             return payment_id
     except (Exception, Error) as error:
         print("Ошибка при работе с successful_payment", error)
@@ -362,11 +361,18 @@ async def trip_status_review(state):
                     # берем время создания поездки
                     time_offset = soonest_pp_time - datetime.datetime.now()
                 
+                # Поиск времени старта
+                cursor.execute(crimgo_db_crud.select_trip_start_time, (data['trip_id'],))
+                trip_start_time = cursor.fetchone()[0]
+
                 # Если в запасе есть 10 минут, меняем время старта и прибытия    
                 if (time_offset > config.MIN_WAIT_TIME):
-                    # Меняю время подбора для пассажиров
                     new_time = time_offset - config.MIN_WAIT_TIME
-
+                    # Если новое время старта больше текущего
+                    if (trip_start_time - new_time < datetime.datetime.now()): 
+                        new_time = trip_start_time - datetime.datetime.now()
+                    
+                    # Меняю время подбора для пассажиров
                     cursor.execute(crimgo_db_crud.update_ticket_set_final_time, (new_time, new_time, data['trip_id']))
                     # Меняем время начала и статус рейса
                     cursor.execute(crimgo_db_crud.update_trip_set_status_scheduled, (new_time, new_time, data['trip_id']))
@@ -451,7 +457,7 @@ async def route_id_by_trip(from_user_id):
 async def get_dict_of_tickets_by_shuttle_position(from_user_id, shuttle_position):
     try:
         cursor.execute(crimgo_db_crud.select_tickets_by_shuttle_position, (shuttle_position, from_user_id))
-        pp_tickets = cursor.fetchone()[0]
+        pp_tickets = [item[0] for item in cursor.fetchall()]
         return pp_tickets
     except (Exception, Error) as error:
         print("Ошибка при работе с get_dict_of_tickets_by_shuttle_position", error)
@@ -584,6 +590,25 @@ async def verify_pass_code(message, code):
     except (Exception, Error) as error:
         print("Ошибка при работе с verify_pass_code", error) 
 
+async def cancel_pass_code(message, code):
+    # Позиция шаттла
+    try:
+        cursor.execute(crimgo_db_crud.select_current_possition_from_shuttle, (message.from_user.id,))
+        shuttle_position = cursor.fetchone()[0]
+        # Ищем пас ID и забронированые места
+        cursor.execute(crimgo_db_crud.select_pass_seat, (code, message.from_user.id))
+        pass_id_seats = cursor.fetchone()
+        # Гасим билет и отнимаем поедку
+        cursor.execute(crimgo_db_crud.update_ticket_status_set_cancel, (shuttle_position, message.from_user.id, pass_id_seats[1], code))
+        if cursor.rowcount == 1:
+            cursor.execute(crimgo_db_crud.update_passenger_decrease_trip, (pass_id_seats[1], pass_id_seats[0]))
+            if cursor.rowcount == 1:
+                connection.commit()
+                return True
+        return False
+    except (Exception, Error) as error:
+        print("Ошибка при работе с cancel_pass_code", error) 
+
 # Проверка существует ли шаттл
 async def check_shuttle_name_and_status(name):
     try:
@@ -677,3 +702,27 @@ async def is_push_needed(state):
             else: return False
     except (Exception, Error) as error:
         print("Ошибка при работе с is_push_needed", error)
+
+async def get_pickup_point_price(pickup_point, route):
+    try:
+        cursor.execute(crimgo_db_crud.select_price_from_pp, (pickup_point, route))
+        price = cursor.fetchone()[0]
+        return price
+    except (Exception, Error) as error:
+        print("Ошибка при работе с get_pickup_point_price", error)
+
+async def get_total_amount(payment_id):
+    try:
+        cursor.execute(crimgo_db_crud.select_total_amount, (payment_id, ))
+        total_amount = cursor.fetchone()[0]
+        return total_amount
+    except (Exception, Error) as error:
+        print("Ошибка при работе с get_total_amount", error)
+
+async def is_any_on_shift():
+    try:
+        cursor.execute(crimgo_db_crud.select_count_from_driver_where_on_shift)
+        count = cursor.fetchone()[0]
+        return count
+    except (Exception, Error) as error:
+        print("Ошибка при работе с is_any_on_shift", error)

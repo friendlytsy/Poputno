@@ -11,6 +11,8 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 
 from random import randrange
 
+from text import passenger_text, driver_text
+
 class FSMRegisterDriver(StatesGroup):
     s_share_name = State()
     s_share_contact = State()
@@ -19,18 +21,18 @@ async def cmd_get_driver_menu(message: types.Message):
     # Если не нет записи в БД, начинается регистрация
     if (await crimgo_db.is_driver_exist(message)) is None:
         await FSMRegisterDriver.s_share_name.set()
-        await message.reply('Введите имя для регистарции', reply_markup=ReplyKeyboardRemove())        
+        await message.reply(driver_text.input_driver_name, reply_markup=ReplyKeyboardRemove())        
     else:
         # Если валиден, otp проверен
         if (await crimgo_db.is_driver_valid(message) is True):
             # То проверка на смену
             if (await crimgo_db.is_on_shift(message)): 
-                await message.reply('Добрый день', reply_markup=kb_driver_shift)
+                await message.reply(driver_text.driver_greetings, reply_markup=kb_driver_shift)
             else: 
-                await message.reply('Добрый день', reply_markup=kb_driver)
+                await message.reply(driver_text.driver_greetings, reply_markup=kb_driver)
         # То предлагаем пройти валидацию
         else: 
-            await message.reply('Ожидается верификация админом', reply_markup=kb_driver_verification)
+            await message.reply(driver_text.awaiting_for_verification, reply_markup=kb_driver_verification)
 
 # Обработка имени
 async def get_driver_name(message: types.Message, state: FSMContext):
@@ -38,19 +40,19 @@ async def get_driver_name(message: types.Message, state: FSMContext):
         data['name'] = message.text
         data['otp'] = randrange(1000, 9999, 1)
     await FSMRegisterDriver.s_share_contact.set()
-    await message.reply('Поделитесь контактом для регистарции', reply_markup=kb_generic_start)        
+    await message.reply(driver_text.share_contact_request, reply_markup=kb_generic_start)        
 
 # Обработка контакта
 async def get_driver_contact(message: types.Message, state: FSMContext):
     # Создаем водителя
     if (await crimgo_db.create_driver(message,state)) is True:
-        await message.answer('Спасибо', reply_markup=kb_driver_verification)
+        await message.answer(driver_text.thanks_for_sharing, reply_markup=kb_driver_verification)
     else:
-        await message.answer('Произошла ошбика, попробуйте позже', reply_markup=kb_generic_start)
+        await message.answer(driver_text.error_try_later, reply_markup=kb_generic_start)
     await state.finish()
 
 async def cmd_get_driver_contact_with_support(message: types.Message):
-    await bot.send_message(chat_id=message.from_user.id, text="<a href='https://t.me/crimgoru'>Администрация CrimGo</a>", parse_mode="HTML")
+    await bot.send_message(chat_id=message.from_user.id, text=passenger_text.contact_with_support_link, parse_mode=passenger_text.html_parse_mode)
 
 
 def register_handlers_driver(dp: Dispatcher):

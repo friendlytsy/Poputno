@@ -6,13 +6,15 @@ from aiogram import Dispatcher, types
 from create_bot import dp, bot
 from database import crimgo_db, crimgo_db_crud
 from keyboards import kb_driver, kb_driver_shift, kb_start_point, kb_start_trip, kb_onboarding_trip, kb_continue_trip, kb_pass_absent, kb_retry_code, kb_outboarding_trip
-from aiogram.types import ReplyKeyboardRemove
+from aiogram.types import ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
 from aiogram.dispatcher.filters.state import State, StatesGroup
 
 from config import config
+
+from text import driver_text
 
 class FSMStartDriverShift(StatesGroup):
     s_inpute_shuttle_name = State()
@@ -124,49 +126,49 @@ async def cmd_onboarding(callback: types.CallbackQuery, state: FSMContext):
     shuttle_position = await crimgo_db.get_shuttle_position(callback)
 
     # Получить кол-во билетов для остановки
-    t_counter = await crimgo_db.get_dict_of_tickets_by_shuttle_position(callback.from_user.id, shuttle_position)
+    t_otp = await crimgo_db.get_dict_of_tickets_by_shuttle_position(callback.from_user.id, shuttle_position)
     
-    await callback.message.answer('Введите 4х значный секретный код, который назовут пассажиры', reply_markup=ReplyKeyboardRemove())
-    await callback.message.answer('Ожидаем {t_counter} код(а) на проверку'.format(t_counter = t_counter), reply_markup=kb_pass_absent)
+    await callback.message.answer(driver_text.current_otps, reply_markup=ReplyKeyboardRemove())
+    for otp in t_otp:
+        await callback.message.answer(otp, reply_markup = InlineKeyboardMarkup().\
+            row(InlineKeyboardButton(driver_text.pass_onboarding, callback_data = 'activate {otp}'.format(otp = otp)),\
+                (InlineKeyboardButton(driver_text.pass_absent, callback_data = 'cancel {otp}'.format(otp = otp)))))
+    # await callback.message.answer('Введите 4х значный секретный код, который назовут пассажиры', reply_markup=ReplyKeyboardRemove())
+    # await callback.message.answer('Ожидаем {t_counter} код(а) на проверку'.format(t_counter = t_counter), reply_markup=kb_pass_absent)
+    
     await FSMCodeVerification.s_code_input.set()    
     async with state.proxy() as data:
-        data['t_counter'] = t_counter
+        # data['t_counter'] = t_otp
         data['shuttle_position'] = shuttle_position
  
 # получение кодов и проверка
-async def cmd_code_verification(message: types.Message, state: FSMContext):
+async def cmd_code_verification(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+
     # Кол-во билетов для остановки и позиция шаттла
     async with state.proxy() as data:
-        t_counter = data['t_counter']
         shuttle_position = data['shuttle_position']
 
-    # Пока кол-во билетов !=0  
-    while t_counter !=0:
-        code = message.text
-        # for code in codes:
-        code_status = await crimgo_db.verify_pass_code(message, code)
+    # Если callback начинается с activate
+    if callback.data.startswith('activate '):
+        code_status = await crimgo_db.verify_pass_code(callback, callback.data.replace('activate ', ''))
+        # Если код прошел проверку
         if code_status is True:
-            await message.reply('Код {code} ✔'.format(code = code), reply_markup=ReplyKeyboardRemove())
-            if t_counter > 1:
-                # Завершение состояния s_code_input
-                await state.finish()
-                await message.answer('Необходимо ввести cледующий код', reply_markup=kb_retry_code)
-                # Завершаем функцию cmd_code_verification
-                break
-        else:
-            await message.reply('Код {code} 𐄂'.format(code = code), reply_markup=ReplyKeyboardRemove())
-            # Завершение состояния s_code_input
-            await state.finish()
-            await message.answer('Необходимо ввести код повторно', reply_markup=kb_retry_code)
-            # Завершаем функцию cmd_code_verification
-            break
-        # Получить кол-во билетов для остановки
-        t_counter = await crimgo_db.get_dict_of_tickets_by_shuttle_position(message.from_user.id, shuttle_position)
-        # await message.reply('Пассажир не пришел?', reply_markup=kb_pass_absent)
-    else:
+            await callback.message.edit_text(text = '{otp} - ✔'.format(otp = callback.data.replace('activate ', '')), reply_markup = None)
+    
+    if callback.data.startswith('cancel '):
+        # TODO отмена заказа водителем
+        code_status = await crimgo_db.cancel_pass_code(callback, callback.data.replace('cancel ', ''))
+        # Если код прошел проверку
+        if code_status is True:
+            await callback.message.edit_text(text = '{otp} - 𐄂'.format(otp = callback.data.replace('cancel ', '')), reply_markup = None)
+
+    # Если билетов больше нет
+    t_counter = await crimgo_db.get_dict_of_tickets_by_shuttle_position(callback.from_user.id, shuttle_position)
+    if len(t_counter) == 0:
         # Завершение состояния s_code_input
         await state.finish()
-        await message.answer('Для продолжения поездки, нажмите `Продолжить`', reply_markup=kb_continue_trip)    
+        await callback.message.answer(driver_text.trip_continue, reply_markup=kb_continue_trip)
     
 # Продожить поездку
 async def cmd_continue_trip(callback: types.CallbackQuery, state: FSMContext):
@@ -274,5 +276,5 @@ def register_handlers_driver_on_shift(dp: Dispatcher):
     dp.register_callback_query_handler(cmd_start_trip, Text(equals='Начать рейс', ignore_case=False))
     dp.register_callback_query_handler(cmd_continue_trip, Text(equals='Продолжить', ignore_case=False))
     dp.register_callback_query_handler(cmd_onboarding, Text(equals='Посадка', ignore_case=False))
-    dp.register_message_handler(cmd_code_verification, state = FSMCodeVerification.s_code_input)
+    dp.register_callback_query_handler(cmd_code_verification, state = FSMCodeVerification.s_code_input)
     dp.register_callback_query_handler(cmd_finish_trip, state = FSMStartDriverShift.s_select_finish_point)
