@@ -282,7 +282,8 @@ async def menu_handle_payment(callback: types.CallbackQuery, state: FSMContext):
         
         payment_id = await crimgo_db.successful_payment(state)
         total_amount = await crimgo_db.get_total_amount(payment_id)
-        msg = await callback.message.answer(passenger_text.check_order.format(total_amount=total_amount, otp=data['otp']))
+        driver_name = await crimgo_db.get_driver_name_by_trip(data['trip_id'])
+        msg = await callback.message.answer(passenger_text.check_order.format(total_amount=total_amount, otp=data['otp'], aprox_time = data['aprox_time'], driver_name = driver_name, pickup_point = data['pickup_point'], drop_point = data['drop_point']))
         # Запись в БД данных для пуша пассажиру
         await crimgo_db.save_pass_message_id(callback.from_user.id, msg.message_id, msg.chat.id)
         # Проверка нужен ли пуш, если None, route ближейшего шаттла не равно data['route'] билета
@@ -362,9 +363,12 @@ async def push_messages(user_id, state, ticket_id, driver_chat_id):
 
                     # Редактируем сообщения пользователей
                     pass_trip_details = await crimgo_db.get_pass_trip_details(state)
+                    driver_name = await crimgo_db.get_driver_name_by_trip(data['trip_id'])
+                    drop_point = await crimgo_db.get_drop_point_by_trip(data['trip_id'])
+                    total_amount = await crimgo_db.get_total_amount_by_trip(data['trip_id'])
                     for push in pass_trip_details:
                         try: 
-                            text = passenger_text.new_pickup_point_time.format(time = (push[2]).strftime("%H:%M"), pp = push[3], otp = push[4])
+                            text = passenger_text.new_pickup_point_time.format(time = (push[2]).strftime("%H:%M"), pickup_point = push[3], otp = push[4], driver_name = driver_name, drop_point = drop_point, total_amount = total_amount)
                             await bot.delete_message(chat_id = push[0], message_id = push[1])
                             updated_msg = await bot.send_message(chat_id = push[0], text = text, reply_markup = None)
                             # Запись в БД данных для пуша пассажиру
@@ -372,8 +376,6 @@ async def push_messages(user_id, state, ticket_id, driver_chat_id):
                             # await bot.edit_message_text(chat_id = push[0], message_id = push[1], text = text, reply_markup=None)
                         except (Exception) as error:
                             print(passenger_text.error_sending_message, error)
-                        # text = 'Внимание, новое время посадки: {time}\nМесто посадки: {pp}\nКод посадки: {otp}'.format(time = (push[2]).strftime("%H:%M"), pp = push[3], otp = push[4])
-                        # await bot.edit_message_text(chat_id = push[0], message_id = push[1], text = text, reply_markup=None)                
 
             else:
                 # Нотификация водителя о новых билетах
@@ -415,9 +417,12 @@ async def push_messages(user_id, state, ticket_id, driver_chat_id):
 
                     # Редактируем сообщения пользователей
                     pass_trip_details = await crimgo_db.get_pass_trip_details(state)
+                    driver_name = await crimgo_db.get_driver_name_by_trip(data['trip_id'])
+                    drop_point = await crimgo_db.get_drop_point_by_trip(data['trip_id'])
+                    total_amount = await crimgo_db.get_total_amount_by_trip(data['trip_id'])
                     for push in pass_trip_details:
                         try: 
-                            text = passenger_text.new_pickup_point_time.format(time = (push[2]).strftime("%H:%M"), pp = push[3], otp = push[4])
+                            text = passenger_text.new_pickup_point_time.format(time = (push[2]).strftime("%H:%M"), pickup_point = push[3], otp = push[4], driver_name = driver_name, drop_point = drop_point, total_amount = total_amount)
                             await bot.delete_message(chat_id = push[0], message_id = push[1])
                             updated_msg = await bot.send_message(chat_id = push[0], text = text, reply_markup = None)
                             # Запись в БД данных для пуша пассажиру
