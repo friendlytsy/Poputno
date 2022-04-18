@@ -23,3 +23,7 @@ pass_onboarding = '  ✅  '
 pass_absent = '  ❌  '
 
 trip_continue = 'Для продолжения поездки, нажмите `Продолжить`'
+
+ticket_error_edit = 'Ошибка при отправке обновления сообщения: '
+
+otp_verification_failed = 'Ошибка верификации ОПТ'

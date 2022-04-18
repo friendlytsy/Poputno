@@ -154,14 +154,20 @@ async def cmd_code_verification(callback: types.CallbackQuery, state: FSMContext
         code_status = await crimgo_db.verify_pass_code(callback, callback.data.replace('activate ', ''))
         # Если код прошел проверку
         if code_status is True:
-            await callback.message.edit_text(text = '{otp} - ✔'.format(otp = callback.data.replace('activate ', '')), reply_markup = None)
+            try:
+                await callback.message.edit_text(text = '{otp} - ✔'.format(otp = callback.data.replace('activate ', '')), reply_markup = None)
+            except (Exception) as error:
+                print(driver_text.otp_verification_failed, error)
     
     if callback.data.startswith('cancel '):
         # TODO отмена заказа водителем
         code_status = await crimgo_db.cancel_pass_code(callback, callback.data.replace('cancel ', ''))
         # Если код прошел проверку
         if code_status is True:
-            await callback.message.edit_text(text = '{otp} - 𐄂'.format(otp = callback.data.replace('cancel ', '')), reply_markup = None)
+            try:
+                await callback.message.edit_text(text = '{otp} - 𐄂'.format(otp = callback.data.replace('cancel ', '')), reply_markup = None)
+            except (Exception) as error:
+                print(driver_text.otp_verification_failed, error)
 
     # Если билетов больше нет
     t_counter = await crimgo_db.get_dict_of_tickets_by_shuttle_position(callback.from_user.id, shuttle_position)
@@ -262,7 +268,10 @@ async def cmd_finish_trip(callback: types.CallbackQuery, state: FSMContext):
             # Информация о чате для пуша водителю
             driver_chat_id = await crimgo_db.get_driver_chat_id(state)
             text = await crimgo_db.get_message_text_trip_id(state)
-            msg = await bot.send_message(driver_chat_id[0], text, reply_markup=kb_start_trip)
+            try:
+                msg = await bot.send_message(driver_chat_id[0], text, reply_markup=kb_start_trip)
+            except (Exception) as error:
+                print(driver_text.ticket_error_edit, error)
             # Обновляем ИД сообщения
             await crimgo_db.set_shuttle_message_id(msg.message_id, state)
     else:

@@ -354,7 +354,6 @@ async def push_messages(user_id, state, ticket_id, driver_chat_id):
                     driver_chat_id = await crimgo_db.get_driver_chat_id(state)
 
                     # Редактируем последее сообщение(удаляем/отправляем и сохраняем)
-                    # await bot.edit_message_text(chat_id = driver_chat_id[0], message_id = driver_chat_id[1], text = text, reply_markup=kb_start_trip)
                     await bot.delete_message(chat_id = driver_chat_id[0], message_id = driver_chat_id[1])
                     updated_msg = await bot.send_message(chat_id = driver_chat_id[0], text = text, reply_markup = kb_start_trip)
                     await crimgo_db.set_shuttle_message_id(updated_msg.message_id, state)
@@ -373,7 +372,6 @@ async def push_messages(user_id, state, ticket_id, driver_chat_id):
                             updated_msg = await bot.send_message(chat_id = push[0], text = text, reply_markup = None)
                             # Запись в БД данных для пуша пассажиру
                             await crimgo_db.save_pass_message_id(user_id, updated_msg.message_id, updated_msg.chat.id)
-                            # await bot.edit_message_text(chat_id = push[0], message_id = push[1], text = text, reply_markup=None)
                         except (Exception) as error:
                             print(passenger_text.error_sending_message, error)
 
@@ -387,7 +385,11 @@ async def push_messages(user_id, state, ticket_id, driver_chat_id):
                 if data['route'] == 'От моря':
                     ticket_dp_time = await crimgo_db.ticket_dp_time(ticket_id)
                     text = tmp + '\nОст. {pickup_point}, {pickup_time}, {seats}м'.format(pickup_point = data['drop_point'], pickup_time = (ticket_dp_time + config.TIME_OFFSET).strftime("%H:%M"), seats = data['seat'])    
-                await bot.edit_message_text(chat_id = driver_chat_id[0], message_id = driver_chat_id[1], text = text, reply_markup=kb_start_trip)
+                try:
+                    await bot.edit_message_text(chat_id = driver_chat_id[0], message_id = driver_chat_id[1], text = text, reply_markup=kb_start_trip)
+                except (Exception) as error:
+                    print(driver_text.ticket_error_edit, error)
+
                 await crimgo_db.save_message_id_and_text(state, text)
                 # Проверка статуса рейса и отправка нотификации водителю и пассажиру об изменении начала рейса
                 status = await crimgo_db.trip_status(state)
@@ -409,7 +411,6 @@ async def push_messages(user_id, state, ticket_id, driver_chat_id):
                             text = text + 'Ост. {pp}, {time}, {seats}м\n'.format(pp = i[0], time = (i[2] + config.TIME_OFFSET).strftime("%H:%M"), seats = i[1])
                    
                     # Редактируем последее сообщение
-                    # await bot.edit_message_text(chat_id = driver_chat_id[0], message_id = driver_chat_id[1], text = text, reply_markup=kb_start_trip)
                     await bot.delete_message(chat_id = driver_chat_id[0], message_id = driver_chat_id[1])
                     updated_msg = await bot.send_message(chat_id = driver_chat_id[0], text = text, reply_markup = kb_start_trip)
                     await crimgo_db.set_shuttle_message_id(updated_msg.message_id, state)
@@ -427,7 +428,6 @@ async def push_messages(user_id, state, ticket_id, driver_chat_id):
                             updated_msg = await bot.send_message(chat_id = push[0], text = text, reply_markup = None)
                             # Запись в БД данных для пуша пассажиру
                             await crimgo_db.save_pass_message_id(user_id, updated_msg.message_id, updated_msg.chat.id)
-                            # await bot.edit_message_text(chat_id = push[0], message_id = push[1], text = text, reply_markup=None)
                         except (Exception) as error:
                             print(passenger_text.error_sending_message, error)
 
