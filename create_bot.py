@@ -7,7 +7,7 @@ import logging
 
 storage = MemoryStorage()
 
-logging.basicConfig(filename='dev_crimgo_bot.log', format=u'%(filename)s [ LINE:%(lineno)+3s ]#%(levelname)+8s [%(asctime)s]  %(message)s', level=logging.INFO)
+logging.basicConfig(filename='crimgo_bot.log', format=u'%(filename)s [ LINE:%(lineno)+3s ]#%(levelname)+8s [%(asctime)s]  %(message)s', level=logging.INFO)
 
 bot=Bot(config.CRIMGOBOT_TOKEN)
 dp=Dispatcher(bot, storage=storage)

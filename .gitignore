@@ -5,5 +5,4 @@ config/config.py
 nohup.out
 bot_prod_telegram.py
 bot_dev_telegram.py
-dev_crimgo_bot.log
-prod_crimgo_bot.log
+crimgo_bot.log
