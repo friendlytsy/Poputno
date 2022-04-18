@@ -1,10 +1,7 @@
 from email import message
-import re
-from subprocess import call
-from time import time
 from aiogram import Dispatcher, types
-from create_bot import dp, bot
-from database import crimgo_db, crimgo_db_crud
+from create_bot import bot
+from database import crimgo_db
 from keyboards import kb_driver, kb_driver_shift, kb_start_point, kb_start_trip, kb_onboarding_trip, kb_continue_trip, kb_pass_absent, kb_retry_code, kb_outboarding_trip
 from aiogram.types import ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
@@ -15,6 +12,8 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 from config import config
 
 from text import driver_text
+
+import logging
 
 class FSMStartDriverShift(StatesGroup):
     s_inpute_shuttle_name = State()
@@ -157,7 +156,7 @@ async def cmd_code_verification(callback: types.CallbackQuery, state: FSMContext
             try:
                 await callback.message.edit_text(text = '{otp} - ✔'.format(otp = callback.data.replace('activate ', '')), reply_markup = None)
             except (Exception) as error:
-                print(driver_text.otp_verification_failed, error)
+                logging.error(msg = error, stack_info = True)
     
     if callback.data.startswith('cancel '):
         # TODO отмена заказа водителем
@@ -167,7 +166,7 @@ async def cmd_code_verification(callback: types.CallbackQuery, state: FSMContext
             try:
                 await callback.message.edit_text(text = '{otp} - 𐄂'.format(otp = callback.data.replace('cancel ', '')), reply_markup = None)
             except (Exception) as error:
-                print(driver_text.otp_verification_failed, error)
+                logging.error(msg = error, stack_info = True)
 
     # Если билетов больше нет
     t_counter = await crimgo_db.get_dict_of_tickets_by_shuttle_position(callback.from_user.id, shuttle_position)

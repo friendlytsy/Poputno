@@ -1,17 +1,18 @@
 from aiogram import Dispatcher, types
 from aiogram.dispatcher import FSMContext
-from aiogram.types.message import ContentType
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.dispatcher.filters import Text
-from datetime import datetime, timedelta
+from datetime import timedelta
 
-from create_bot import dp, bot
+from create_bot import bot
 from database import crimgo_db
 from keyboards import kb_pass, kb_driver, kb_path, kb_seat, kb_geoposition, kb_pp_confirmation, kb_trip_confirmation, kb_payment_type, kb_driver_shift, kb_generic_start, kb_start_trip, kb_onboarding_trip
 
 from random import randrange
 
 from config import config
+
+import logging
 
 from text import passenger_text
 from text import driver_text
@@ -373,7 +374,7 @@ async def push_messages(user_id, state, ticket_id, driver_chat_id):
                             # Запись в БД данных для пуша пассажиру
                             await crimgo_db.save_pass_message_id(user_id, updated_msg.message_id, updated_msg.chat.id)
                         except (Exception) as error:
-                            print(passenger_text.error_sending_message, error)
+                            logging.error(msg = error, stack_info = True)
 
             else:
                 # Нотификация водителя о новых билетах
@@ -388,7 +389,7 @@ async def push_messages(user_id, state, ticket_id, driver_chat_id):
                 try:
                     await bot.edit_message_text(chat_id = driver_chat_id[0], message_id = driver_chat_id[1], text = text, reply_markup=kb_start_trip)
                 except (Exception) as error:
-                    print(driver_text.ticket_error_edit, error)
+                    logging.error(msg = error, stack_info = True)
 
                 await crimgo_db.save_message_id_and_text(state, text)
                 # Проверка статуса рейса и отправка нотификации водителю и пассажиру об изменении начала рейса
@@ -429,7 +430,7 @@ async def push_messages(user_id, state, ticket_id, driver_chat_id):
                             # Запись в БД данных для пуша пассажиру
                             await crimgo_db.save_pass_message_id(user_id, updated_msg.message_id, updated_msg.chat.id)
                         except (Exception) as error:
-                            print(passenger_text.error_sending_message, error)
+                            logging.error(msg = error, stack_info = True)
 
 # Удаления сообщений в списке msg_id_list
 async def remove_messages(chat_id, msg_id_list):
