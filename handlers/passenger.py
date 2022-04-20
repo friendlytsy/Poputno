@@ -7,6 +7,7 @@ from datetime import timedelta
 from create_bot import bot
 from database import crimgo_db
 from keyboards import kb_pass, kb_driver, kb_path, kb_seat, kb_geoposition, kb_pp_confirmation, kb_trip_confirmation, kb_payment_type, kb_driver_shift, kb_generic_start, kb_start_trip, kb_onboarding_trip
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
 from random import randrange
 
@@ -181,7 +182,7 @@ async def menu_trip_confirm(callback: types.CallbackQuery, state: FSMContext):
             if (await crimgo_db.is_any_on_shift() != 0):
                 # если нет trip с указаным маршрутом, создаем его
                 trip_id = await crimgo_db.is_trip_with_route(state)
-                if (trip_id is None):
+                if (trip_id is False or None):
                     trip_id = await crimgo_db.create_trip(state)
                     # Определить 
                     if (trip_id is False):
@@ -327,7 +328,9 @@ async def push_messages(user_id, state, ticket_id, driver_chat_id):
                 if data['route'] == 'От моря':
                     ticket_dp_time = await crimgo_db.ticket_dp_time(ticket_id)
                     text = driver_text.new_ticket_assigned.format(pickup_point = data['drop_point'], pickup_time = (ticket_dp_time + config.TIME_OFFSET).strftime("%H:%M"), seats = data['seat'])    
-                msg = await bot.send_message(driver_chat_id[0], text, reply_markup=kb_start_trip)
+                # msg = await bot.send_message(driver_chat_id[0], text, reply_markup=kb_start_trip)
+                # В callback вставляю id поездки
+                msg = await bot.send_message(driver_chat_id[0], text, reply_markup=InlineKeyboardMarkup().add(InlineKeyboardButton(text = 'Начать рейс', callback_data='Начать рейс {trip_id}'.format(trip_id=data['trip_id'])))) 
                 await crimgo_db.set_shuttle_message_id(msg.message_id, state)
                 await crimgo_db.save_message_id_and_text(state, text)
 
@@ -356,7 +359,7 @@ async def push_messages(user_id, state, ticket_id, driver_chat_id):
 
                     # Редактируем последее сообщение(удаляем/отправляем и сохраняем)
                     await bot.delete_message(chat_id = driver_chat_id[0], message_id = driver_chat_id[1])
-                    updated_msg = await bot.send_message(chat_id = driver_chat_id[0], text = text, reply_markup = kb_start_trip)
+                    updated_msg = await bot.send_message(chat_id = driver_chat_id[0], text = text, reply_markup=InlineKeyboardMarkup().add(InlineKeyboardButton(text = 'Начать рейс', callback_data='Начать рейс {trip_id}'.format(trip_id=data['trip_id']))))
                     await crimgo_db.set_shuttle_message_id(updated_msg.message_id, state)
                     await crimgo_db.save_message_id_and_text(state, text)
 
@@ -364,8 +367,8 @@ async def push_messages(user_id, state, ticket_id, driver_chat_id):
                     # Редактируем сообщения пользователей
                     pass_trip_details = await crimgo_db.get_pass_trip_details(state)
                     driver_name = await crimgo_db.get_driver_name_by_trip(data['trip_id'])
-                    drop_point = await crimgo_db.get_drop_point_by_trip(data['trip_id'])
-                    total_amount = await crimgo_db.get_total_amount_by_trip(data['trip_id'])
+                    drop_point = await crimgo_db.get_drop_point_by_trip(data['trip_id'], ticket_id)
+                    total_amount = await crimgo_db.get_total_amount_by_trip(data['trip_id'], ticket_id)
                     for push in pass_trip_details:
                         try: 
                             text = passenger_text.new_pickup_point_time.format(time = (push[2]).strftime("%H:%M"), pickup_point = push[3], otp = push[4], driver_name = driver_name, drop_point = drop_point, total_amount = total_amount)
@@ -387,7 +390,7 @@ async def push_messages(user_id, state, ticket_id, driver_chat_id):
                     ticket_dp_time = await crimgo_db.ticket_dp_time(ticket_id)
                     text = tmp + '\nОст. {pickup_point}, {pickup_time}, {seats}м'.format(pickup_point = data['drop_point'], pickup_time = (ticket_dp_time + config.TIME_OFFSET).strftime("%H:%M"), seats = data['seat'])    
                 try:
-                    await bot.edit_message_text(chat_id = driver_chat_id[0], message_id = driver_chat_id[1], text = text, reply_markup=kb_start_trip)
+                    await bot.edit_message_text(chat_id = driver_chat_id[0], message_id = driver_chat_id[1], text = text, reply_markup=InlineKeyboardMarkup().add(InlineKeyboardButton(text = 'Начать рейс', callback_data='Начать рейс {trip_id}'.format(trip_id=data['trip_id']))))
                 except (Exception) as error:
                     logging.error(msg = error, stack_info = True)
 
@@ -413,15 +416,15 @@ async def push_messages(user_id, state, ticket_id, driver_chat_id):
                    
                     # Редактируем последее сообщение
                     await bot.delete_message(chat_id = driver_chat_id[0], message_id = driver_chat_id[1])
-                    updated_msg = await bot.send_message(chat_id = driver_chat_id[0], text = text, reply_markup = kb_start_trip)
+                    updated_msg = await bot.send_message(chat_id = driver_chat_id[0], text = text, reply_markup=InlineKeyboardMarkup().add(InlineKeyboardButton(text = 'Начать рейс', callback_data='Начать рейс {trip_id}'.format(trip_id=data['trip_id']))))
                     await crimgo_db.set_shuttle_message_id(updated_msg.message_id, state)
                     await crimgo_db.save_message_id_and_text(state, text)
 
                     # Редактируем сообщения пользователей
                     pass_trip_details = await crimgo_db.get_pass_trip_details(state)
                     driver_name = await crimgo_db.get_driver_name_by_trip(data['trip_id'])
-                    drop_point = await crimgo_db.get_drop_point_by_trip(data['trip_id'])
-                    total_amount = await crimgo_db.get_total_amount_by_trip(data['trip_id'])
+                    drop_point = await crimgo_db.get_drop_point_by_trip(data['trip_id'], ticket_id)
+                    total_amount = await crimgo_db.get_total_amount_by_trip(data['trip_id'], ticket_id)
                     for push in pass_trip_details:
                         try: 
                             text = passenger_text.new_pickup_point_time.format(time = (push[2]).strftime("%H:%M"), pickup_point = push[3], otp = push[4], driver_name = driver_name, drop_point = drop_point, total_amount = total_amount)

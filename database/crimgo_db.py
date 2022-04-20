@@ -214,7 +214,7 @@ async def is_trip_with_route(state):
         async with state.proxy() as data:
             cursor.execute(crimgo_db_crud.select_trip_id_status_awaiting_pass, (data['route'],))
             trip_id = cursor.fetchone()
-            return trip_id
+            return trip_id[0]
     except (Exception, Error) as error:
         logging.error(msg=error, stack_info=True)
         return False
@@ -421,11 +421,20 @@ async def is_first_ticket(state):
         logging.error(msg=error, stack_info=True)
         return False
 
+# Установка message_id для пуша водителю через state
 async def set_shuttle_message_id(message_id, state):
     try:
         async with state.proxy() as data:
             cursor.execute(crimgo_db_crud.update_shuttle_set_driver_message_id, (message_id, data['trip_id']))
             connection.commit()
+    except (Exception, Error) as error:
+        logging.error(msg=error, stack_info=True)
+
+# Установка message_id для пуша водителю через trip_pd
+async def set_shuttle_message_id_by_trip(message_id, trip_id):
+    try:
+        cursor.execute(crimgo_db_crud.update_shuttle_set_driver_message_id, (message_id, trip_id))
+        connection.commit()
     except (Exception, Error) as error:
         logging.error(msg=error, stack_info=True)
 
@@ -559,6 +568,14 @@ async def set_shuttle_position(callback, route_id_by_trip):
 async def set_trip_status(callback, from_status, to_status):
     try:
         cursor.execute(crimgo_db_crud.update_trip_set_status, (to_status, from_status, callback.from_user.id))
+        connection.commit()
+    except (Exception, Error) as error:
+        logging.error(msg=error, stack_info=True)
+
+async def set_trip_status_start(callback, to_status):
+    try:
+        trip_id = callback.data.replace('Начать рейс ', '')
+        cursor.execute(crimgo_db_crud.update_trip_set_status_by_id, (to_status, trip_id, callback.from_user.id))
         connection.commit()
     except (Exception, Error) as error:
         logging.error(msg=error, stack_info=True)
@@ -719,7 +736,7 @@ async def is_any_on_shift():
     except (Exception, Error) as error:
         logging.error(msg=error, stack_info=True)
 
-async def get_driver_name_by_trip(trip_id):
+async def get_driver_name_by_trip(trip_id,):
     try:
         cursor.execute(crimgo_db_crud.select_name_from_driver, (trip_id, ) )
         driver_name = cursor.fetchone()[0]
@@ -727,18 +744,26 @@ async def get_driver_name_by_trip(trip_id):
     except (Exception, Error) as error:
         logging.error(msg=error, stack_info=True)
 
-async def get_drop_point_by_trip(trip_id):
+async def get_drop_point_by_trip(trip_id, ticket_id):
     try:
-        cursor.execute(crimgo_db_crud.select_drop_point_from_pp, (trip_id, ) )
+        cursor.execute(crimgo_db_crud.select_drop_point_from_pp, (trip_id, ticket_id) )
         drop_point = cursor.fetchone()[0]
         return drop_point
     except (Exception, Error) as error:
         logging.error(msg=error, stack_info=True)
 
-async def get_total_amount_by_trip(trip_id):
+async def get_total_amount_by_trip(trip_id, ticket_id):
     try:
-        cursor.execute(crimgo_db_crud.select_total_amount_from_payment_by_trip_id, (trip_id, ) )
+        cursor.execute(crimgo_db_crud.select_total_amount_from_payment_by_trip_id, (trip_id, ticket_id) )
         total_amount = cursor.fetchone()[0]
         return total_amount
+    except (Exception, Error) as error:
+        logging.error(msg=error, stack_info=True)
+
+async def is_trip_assigned(user_id):
+    try:
+        cursor.execute(crimgo_db_crud.select_is_assigned_on_driver, (user_id, ))
+        is_assigned = cursor.fetchone()[0]
+        return is_assigned
     except (Exception, Error) as error:
         logging.error(msg=error, stack_info=True)

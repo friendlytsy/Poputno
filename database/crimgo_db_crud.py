@@ -367,6 +367,9 @@ update_shutlle_set_position = '''UPDATE shuttle SET current_position = %s WHERE 
 # Обновление статуса параметром
 update_trip_set_status = '''UPDATE trip SET status = %s WHERE status = %s AND shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s)'''
 
+# Обновление статуса параметром через trip_id
+update_trip_set_status_by_id = '''UPDATE trip SET status = %s WHERE id = %s AND status = \'awaiting_passengers\' OR status = \'scheduled\' AND shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s)'''
+
 # Возвращает p.pass_id, t.booked_seats
 select_pass_seat = '''SELECT p.pass_id, t.booked_seats FROM payment AS p, ticket AS t WHERE p.id = (SELECT payment_id FROM ticket WHERE status = \'active\' AND otp = %s AND trip_id = (SELECT id FROM trip WHERE status = \'started\' AND shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s))) AND p.id = t.payment_id'''
 
@@ -438,7 +441,10 @@ select_count_from_driver_where_on_shift = '''SELECT COUNT(*) FROM driver WHERE o
 select_name_from_driver = '''SELECT name FROM driver WHERE telegram_id = (SELECT driver_id FROM shuttle WHERE id = (SELECT shuttle_id FROM trip WHERE id = %s))'''
 
 # Возвращает точку высадки
-select_drop_point_from_pp = '''SELECT name FROM pickup_point WHERE id = (SELECT drop_point FROM ticket WHERE trip_id = %s)'''
+select_drop_point_from_pp = '''SELECT name FROM pickup_point WHERE id = (SELECT drop_point FROM ticket WHERE trip_id = %s and id = %s)'''
 
 # Возвращает тотал 
-select_total_amount_from_payment_by_trip_id = '''SELECT total_amount FROM payment WHERE id = (SELECT payment_id FROM ticket WHERE trip_id = %s)'''
+select_total_amount_from_payment_by_trip_id = '''SELECT total_amount FROM payment WHERE id = (SELECT payment_id FROM ticket WHERE trip_id = %s and id = %s)'''
+
+# Возвращает true/false если назначены поездки
+select_is_assigned_on_driver = '''SELECT EXISTS (SELECT FROM trip WHERE status = \'scheduled\' or status = \'awaiting_passengers\' AND shuttle_id = (SELECT id from shuttle where driver_id = %s))'''

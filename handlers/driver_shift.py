@@ -66,9 +66,9 @@ async def cmd_start_point(callback: types.CallbackQuery, state: FSMContext):
 
 async def cmd_start_trip(callback: types.CallbackQuery):
     await callback.answer()
-
     # Обновление статуса поездки
-    await crimgo_db.set_trip_status(callback, 'scheduled', 'started')
+    # await crimgo_db.set_trip_status_start(callback, trip_id, 'started')
+    await crimgo_db.set_trip_status_start(callback, 'started')
 
     # Получить маршрут
     route = await crimgo_db.get_route(callback)
@@ -232,8 +232,16 @@ async def cmd_continue_trip(callback: types.CallbackQuery, state: FSMContext):
             await callback.message.answer(text, reply_markup=kb_outboarding_trip)
 
 async def cmd_stop_shift(message: types.Message):
-    await crimgo_db.stop_driver_shift(message)
-    await message.reply('Смена окончена', reply_markup=kb_driver)
+    assigned_trip = await crimgo_db.is_trip_assigned(message.from_user.id)
+    if assigned_trip:
+        trip_details = await crimgo_db.check_available_trip_after_trip(message.from_user.id)
+        if trip_details is not None:
+            await message.answer('Вам назначен рейс {trip_id} "{route}". Старт в {start_time}.'.format(trip_id = trip_details[0], route = trip_details[1], start_time = (config.TIME_OFFSET + trip_details[2]).strftime("%H:%M")), reply_markup=kb_driver_shift)    
+            # Сохраняем ИД сообщения для обновления
+            await crimgo_db.set_shuttle_message_id_by_trip(message.message_id, trip_details[0])
+    else:
+        await crimgo_db.stop_driver_shift(message)
+        await message.reply('Смена окончена', reply_markup=kb_driver)
 
 async def cmd_finish_trip(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
@@ -268,7 +276,7 @@ async def cmd_finish_trip(callback: types.CallbackQuery, state: FSMContext):
             driver_chat_id = await crimgo_db.get_driver_chat_id(state)
             text = await crimgo_db.get_message_text_trip_id(state)
             try:
-                msg = await bot.send_message(driver_chat_id[0], text, reply_markup=kb_start_trip)
+                msg = await bot.send_message(driver_chat_id[0], text, reply_markup=InlineKeyboardMarkup().add(InlineKeyboardButton(text = 'Начать рейс', callback_data='Начать рейс {trip_id}'.format(trip_id=data['trip_id']))))
             except (Exception) as error:
                 print(driver_text.ticket_error_edit, error)
             # Обновляем ИД сообщения
@@ -281,7 +289,7 @@ def register_handlers_driver_on_shift(dp: Dispatcher):
     dp.register_message_handler(cmd_stop_shift, Text(equals='Текущее состояние: на линии', ignore_case=False))
     dp.register_message_handler(cmd_shuttle_bind, state = FSMStartDriverShift.s_inpute_shuttle_name)
     dp.register_callback_query_handler(cmd_start_point, state = FSMStartDriverShift.s_select_start_point)
-    dp.register_callback_query_handler(cmd_start_trip, Text(equals='Начать рейс', ignore_case=False))
+    dp.register_callback_query_handler(cmd_start_trip, Text(contains='Начать рейс', ignore_case=False))
     dp.register_callback_query_handler(cmd_continue_trip, Text(equals='Продолжить', ignore_case=False))
     dp.register_callback_query_handler(cmd_onboarding, Text(equals='Посадка', ignore_case=False))
     dp.register_callback_query_handler(cmd_code_verification, state = FSMCodeVerification.s_code_input)
