@@ -12,6 +12,8 @@ from datetime import timedelta
 
 import logging
 
+import re
+
 def crimgo_db_start():
     global connection, cursor
     try:
@@ -213,8 +215,10 @@ async def is_trip_with_route(state):
     try:
         async with state.proxy() as data:
             cursor.execute(crimgo_db_crud.select_trip_id_status_awaiting_pass, (data['route'],))
-            trip_id = cursor.fetchone()
-            return trip_id[0]
+            trip_id_list = cursor.fetchone()
+            if trip_id_list is not None:
+                trip_id = trip_id_list[0]
+                return trip_id
     except (Exception, Error) as error:
         logging.error(msg=error, stack_info=True)
         return False

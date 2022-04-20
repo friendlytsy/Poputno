@@ -135,7 +135,10 @@ async def menu_pp_confirm(callback: types.CallbackQuery, state: FSMContext):
                     data['pickup_point'] = 'Успенская церковь'
                     data['drop_point'] = callback.data
             pp_location = await crimgo_db.get_pp_location(callback.data, data['route'])
-            msg_location = await bot.send_location(chat_id=callback.from_user.id, latitude=pp_location[0], longitude=pp_location[1])
+            try:
+                msg_location = await bot.send_location(chat_id=callback.from_user.id, latitude=pp_location[0], longitude=pp_location[1])
+            except (Exception) as error:
+                logging.error(msg = error, stack_info = True)
             async with state.proxy() as data:
                 data['msg_location'] = [msg_location.message_id]
             if data['route'] == 'К морю':
@@ -182,7 +185,7 @@ async def menu_trip_confirm(callback: types.CallbackQuery, state: FSMContext):
             if (await crimgo_db.is_any_on_shift() != 0):
                 # если нет trip с указаным маршрутом, создаем его
                 trip_id = await crimgo_db.is_trip_with_route(state)
-                if (trip_id is False or None):
+                if (trip_id is None):
                     trip_id = await crimgo_db.create_trip(state)
                     # Определить 
                     if (trip_id is False):

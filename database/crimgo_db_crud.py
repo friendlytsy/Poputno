@@ -257,7 +257,7 @@ select_from_shuttle_order_by_timestamp = '''SELECT id FROM shuttle WHERE driver_
 select_from_shuttle_opposite_route = '''SELECT id FROM shuttle WHERE driver_id is not null AND current_position between (select min(id)+1 from pickup_point where route_id = (SELECT id FROM route WHERE name = %s)) and (select max(id) from pickup_point where route_id = (SELECT id FROM route WHERE name = %s)) order by timestamp DESC'''
 
 # Возвращает ИД поедок с статусом ждем пассажиров
-select_trip_id_status_awaiting_pass = '''SELECT id FROM trip WHERE route = (SELECT id FROM route WHERE name = %s) AND available_seats > 0 and status = \'awaiting_passengers\''''
+select_trip_id_status_awaiting_pass = '''SELECT id FROM trip WHERE route = (SELECT id FROM route WHERE name = %s) AND available_seats > 0 and status = \'awaiting_passengers\' ORDER BY creation_time'''
 
 # Вычет заказанных мест из поездки
 update_trip_decrement_seats = '''UPDATE trip SET (available_seats, timestamp) = (available_seats - %s, %s) WHERE id = %s'''
