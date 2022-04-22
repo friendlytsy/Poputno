@@ -1,4 +1,3 @@
-from hashlib import new
 import psycopg2
 import datetime
 
@@ -11,8 +10,6 @@ from config import config
 from datetime import timedelta
 
 import logging
-
-import re
 
 def crimgo_db_start():
     global connection, cursor
@@ -178,20 +175,24 @@ async def stop_driver_shift(message):
 async def create_trip(state):
     try:
         async with state.proxy() as data:
-            # создание рейса и привязка шаттла, бросит исключение из-за "null value in column "shuttle_id" violates not-null constraint"
             # Поиск шаттла на начальной остановке маршрута, сортировка по времени простоя
             cursor.execute(crimgo_db_crud.select_from_shuttle_order_by_timestamp, (data['route'], ))
             shuttle_id = cursor.fetchone()
-
+            count_of_awaiting_trips = 1
+            
             # Поиск ближайшего шаттла на противополжном маршруте, не считаю начальную остановку
             if shuttle_id is None:
                 cursor.execute(crimgo_db_crud.select_from_shuttle_opposite_route, (data['opposite'], data['opposite']))
                 shuttle_id = cursor.fetchone()
+                if shuttle_id is not None: count_of_awaiting_trips = await count_of_awaiting_trips(shuttle_id)
+                
             # Поиск шаттла на противополжной начальной остановке
             if shuttle_id is None:
                 cursor.execute(crimgo_db_crud.select_from_shuttle_order_by_timestamp, (data['opposite'], ))
                 shuttle_id = cursor.fetchone()
-            cursor.execute(crimgo_db_crud.insert_into_trip, (shuttle_id[0] ,'awaiting_passengers', data['route'],  datetime.datetime.now(), shuttle_id,datetime.datetime.now(), datetime.datetime.now() + config.MAX_WAIT_TIME, datetime.datetime.now() + config.MAX_WAIT_TIME + config.TRVL_TIME))
+                if shuttle_id is not None: count_of_awaiting_trips = await delay_start_time(shuttle_id) + 1
+
+            cursor.execute(crimgo_db_crud.insert_into_trip, (shuttle_id[0] ,'awaiting_passengers', data['route'],  datetime.datetime.now(), shuttle_id, data['seat'], datetime.datetime.now(), datetime.datetime.now() + config.MAX_WAIT_TIME * count_of_awaiting_trips, datetime.datetime.now() + (config.MAX_WAIT_TIME + config.TRVL_TIME) * count_of_awaiting_trips))
             trip_id = cursor.fetchone()[0]
             connection.commit()
             return trip_id
@@ -199,7 +200,19 @@ async def create_trip(state):
         logging.error(msg=error, stack_info=True)
         return False
 
-# Обнлвление времени
+# Считаем на сколько нужно отложить старт
+async def delay_start_time(shuttle_id):
+    # Считаем кол-во поездок которые висят на шаттле, чтобы отложить start_time
+    cursor.execute(crimgo_db_crud.select_count_of_trip_by_shuttle_id, (shuttle_id, ))
+    test = cursor.fetchone()[0]
+    # Если поездок нет, значит счетчик делаем = 1, потом умножаем время MAX_WAIT_TIME и TRVL_TIME на этот счетчик при создании поездки
+    if test is not None and test == 0:
+        return 1
+    else:
+        # Если поезди есть, значит счетчик делаем + 1, потом умножаем время MAX_WAIT_TIME и TRVL_TIME на этот счетчик при создании поездки
+        return test + 1
+
+# Обновление времени
 async def update_trip_set_time_delta(state, ADD_DELTA_TIME):
     try:
         async with state.proxy() as data:
@@ -222,6 +235,21 @@ async def is_trip_with_route(state):
     except (Exception, Error) as error:
         logging.error(msg=error, stack_info=True)
         return False
+
+# Поиск открытых поездок со свободными местами
+async def is_trip_with_route_and_seats(state):
+    try:
+        async with state.proxy() as data:
+            cursor.execute(crimgo_db_crud.update_trip_and_reserve_seats_return_id, (data['seat'], data['route'], data['seat']))
+            trip_id_list = cursor.fetchone()
+            if trip_id_list is not None:
+                trip_id = trip_id_list[0]
+
+                return trip_id
+    except (Exception, Error) as error:
+        logging.info(msg=error, stack_info=False)
+        return None
+
 
 # Проверка на доступное кол-во мест
 # НУЖНО ВЕРНУТЬ МЕСТА НА МЕСТО В СЛУЧАЕ НЕОПЛАТЫ
@@ -321,13 +349,26 @@ async def check_available_trip(state):
 # Проверка доступных поездок после выполенния маршрута
 async def check_available_trip_after_trip(driver_id):
     try:
-        cursor.execute(crimgo_db_crud.select_trip_available_by_driver, (driver_id,))
+        shuttle_route = await get_shuttle_route(driver_id)
+        cursor.execute(crimgo_db_crud.select_trip_available_by_driver, (shuttle_route, driver_id))
         trip_details = cursor.fetchone()
         return trip_details
     except (Exception, Error) as error:
         logging.error(msg=error, stack_info=True)
         return False
 
+# Возвращает маршрут на котором стоит шаттл
+async def get_shuttle_route(driver_id):
+    try:
+        cursor.execute(crimgo_db_crud.select_shuttle_position, (driver_id,))
+        position = cursor.fetchone()
+        if position is not None and position[0] in [1,2,3,4,5,6,7,8]:
+            return 1
+        else:
+            return 2
+    except (Exception, Error) as error:
+        logging.error(msg=error, stack_info=True)
+        return False
 
 # Детали поездки
 async def trip_details(state):
@@ -708,13 +749,24 @@ async def get_pass_trip_details(state):
 async def is_push_needed(state):
     try:
         async with state.proxy() as data:
-            cursor.execute(crimgo_db_crud.select_trip_status, (data['trip_id'],))
-            trip_status = cursor.fetchone()[0]
-            if trip_status == 'awaiting_passengers' or 'scheduled':
+            # Find driver by current trip_id
+            cursor.execute(crimgo_db_crud.select_driver_id_from_trip, (data['trip_id'],))
+            driver_id = cursor.fetchone()[0]
+            # Find current shuttle posstion
+            route_id = await get_shuttle_route(driver_id)
+            # Find soonest trip of driver above
+            cursor.execute(crimgo_db_crud.select_trip_available_by_driver, (route_id, driver_id))
+            soonets_trip = cursor.fetchone()
+            if route_id in [1]:
+                current_shuttle_route = 'К морю'
+            else:
+                current_shuttle_route = 'От моря'
+            if soonets_trip[0] == data['trip_id'] and current_shuttle_route == soonets_trip[1]:
                 return True
             else: return False
     except (Exception, Error) as error:
         logging.error(msg=error, stack_info=True)
+        return False
 
 async def get_pickup_point_price(pickup_point, route):
     try:

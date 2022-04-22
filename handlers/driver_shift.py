@@ -265,6 +265,7 @@ async def cmd_finish_trip(callback: types.CallbackQuery, state: FSMContext):
         await callback.message.answer('Спасибо! Вы указали, что стоите на ост. {start_point}. Скоро вам назначат рейс, ожидайте'.format(start_point = start_point), reply_markup=kb_driver_shift)
         # await crimgo_db.set_shuttle_message_id(callback.message.message_id, state)
         # Если есть поездки
+        # TODO
         trip_details = await crimgo_db.check_available_trip_after_trip(callback.from_user.id)
         if trip_details is not None:
             await callback.message.answer('Поздравляем, Вам назначен рейс {trip_id} "{route}". Старт в {start_time} от "{start_point}"'.format(trip_id = trip_details[0], route = trip_details[1], start_time = (config.TIME_OFFSET + trip_details[2]).strftime("%H:%M"), start_point = start_point), reply_markup=kb_driver_shift)    
