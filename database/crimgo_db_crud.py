@@ -259,7 +259,7 @@ select_count_of_trip_by_shuttle_id = '''SELECT COUNT(*) FROM trip WHERE shuttle_
 # Возвращает ближайшие шаттлы на противополжном маршруте, не считаю начальную остановку
 select_from_shuttle_opposite_route = '''SELECT id FROM shuttle WHERE driver_id is not null AND current_position between (select min(id)+1 from pickup_point where route_id = (SELECT id FROM route WHERE name = %s)) and (select max(id) from pickup_point where route_id = (SELECT id FROM route WHERE name = %s)) order by timestamp DESC'''
 
-# Возвращает ИД поедок с статусом ждем пассажиров
+# Возвращает ИД поездок с статусом ждем пассажиров
 select_trip_id_status_awaiting_pass = '''SELECT id FROM trip WHERE route = (SELECT id FROM route WHERE name = %s) AND available_seats > 0 and status = \'awaiting_passengers\' ORDER BY creation_time'''
 
 # Возвращает ИД поедок с статусом ждем пассажиров и определенного кол-ва мест
@@ -464,3 +464,6 @@ select_is_assigned_on_driver = '''SELECT EXISTS (SELECT FROM trip WHERE status =
 
 # Возвращает ИД водителя по поездке
 select_driver_id_from_trip = '''SELECT s.driver_id FROM shuttle AS s, trip AS t WHERE t.id = %s AND t.shuttle_id = s.id'''
+
+# Возвращает ИД поездки по водителю
+select_id_from_trip_by_driver = '''SELECT id FROM trip WHERE status = \'started\' AND shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s)'''

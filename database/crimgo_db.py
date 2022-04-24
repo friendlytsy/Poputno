@@ -823,3 +823,11 @@ async def is_trip_assigned(user_id):
         return is_assigned
     except (Exception, Error) as error:
         logging.error(msg=error, stack_info=True)
+
+async def get_trip_id_by_driver(telegram_id):
+    try:
+        cursor.execute(crimgo_db_crud.select_id_from_trip_by_driver, (telegram_id, ))
+        trip_id = cursor.fetchone()[0]
+        return trip_id
+    except (Exception, Error) as error:
+        logging.error(msg=error, stack_info=True)

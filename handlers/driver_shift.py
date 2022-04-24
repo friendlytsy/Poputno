@@ -2,8 +2,8 @@ from email import message
 from aiogram import Dispatcher, types
 from create_bot import bot
 from database import crimgo_db
-from keyboards import kb_driver, kb_driver_shift, kb_start_point, kb_start_trip, kb_onboarding_trip, kb_continue_trip, kb_pass_absent, kb_retry_code, kb_outboarding_trip
-from aiogram.types import ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from keyboards import kb_driver, kb_driver_shift, kb_start_point, kb_start_trip, kb_onboarding_trip, kb_continue_trip, kb_outboarding_trip, kb_pass
+from aiogram.types import ReplyKeyboardRemove, InlineKeyboardMarkup, InlineKeyboardButton
 
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
@@ -11,7 +11,7 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 
 from config import config
 
-from text import driver_text
+from text import driver_text, passenger_text
 
 import logging
 
@@ -49,13 +49,10 @@ async def cmd_start_point(callback: types.CallbackQuery, state: FSMContext):
     # Проверяем, если привязан
     if await crimgo_db.is_shuttle_binded(state) is not None or False:
         await callback.message.answer('Спасибо! Вы указали, что стоите на ост. {start_point}. Скоро вам назначат рейс, ожидайте'.format(start_point = callback.data), reply_markup=kb_driver_shift)
-        # await crimgo_db.set_shuttle_message_id(callback.message.message_id, state)
         # Записать чат message id
         trip_details = await crimgo_db.check_available_trip(state)
         if trip_details is not None:
             await callback.message.answer('Поздравляем, Вам назначен рейс {trip_id} "{route}". Старт в {start_time} от "{start_point}"'.format(trip_id = trip_details[0], route = trip_details[1], start_time = (config.TIME_OFFSET + trip_details[2]).strftime("%H:%M"), start_point = data['start_point']), reply_markup=kb_start_trip)
-        # else:
-        #     await callback.message.reply('Спасибо! Вы указали, что стоите на ост. {start_point}, скоро вам назначат рейс, ожидайте'.format(start_point = callback.data), reply_markup=kb_driver_shift)
             
     else:
         await message.reply('Произошла ошибка, повторите позже', reply_markup=ReplyKeyboardRemove())
@@ -67,7 +64,6 @@ async def cmd_start_point(callback: types.CallbackQuery, state: FSMContext):
 async def cmd_start_trip(callback: types.CallbackQuery):
     await callback.answer()
     # Обновление статуса поездки
-    # await crimgo_db.set_trip_status_start(callback, trip_id, 'started')
     await crimgo_db.set_trip_status_start(callback, 'started')
 
     # Получить маршрут
@@ -83,8 +79,6 @@ async def cmd_start_trip(callback: types.CallbackQuery):
         # Получить словарь билетов на рейс
         tickets = await crimgo_db.get_dict_of_tickets_by_driver(callback.from_user.id)
         drop_points = await crimgo_db.get_dict_of_tickets_by_driver_drop_point(callback.from_user.id)
-        # if (await crimgo_db.get_shuttle_position(callback)) == 9 and tickets[0][3] != 9:
-        #     await crimgo_db.set_shuttle_position(callback, route)
 
     # Текущее местоположение шаттла
     shuttle_position = await crimgo_db.get_shuttle_position(callback)
@@ -132,8 +126,6 @@ async def cmd_onboarding(callback: types.CallbackQuery, state: FSMContext):
         await callback.message.answer(otp, reply_markup = InlineKeyboardMarkup().\
             row(InlineKeyboardButton(driver_text.pass_onboarding, callback_data = 'activate {otp}'.format(otp = otp)),\
                 (InlineKeyboardButton(driver_text.pass_absent, callback_data = 'cancel {otp}'.format(otp = otp)))))
-    # await callback.message.answer('Введите 4х значный секретный код, который назовут пассажиры', reply_markup=ReplyKeyboardRemove())
-    # await callback.message.answer('Ожидаем {t_counter} код(а) на проверку'.format(t_counter = t_counter), reply_markup=kb_pass_absent)
     
     await FSMCodeVerification.s_code_input.set()    
     async with state.proxy() as data:
@@ -159,7 +151,7 @@ async def cmd_code_verification(callback: types.CallbackQuery, state: FSMContext
                 logging.error(msg = error, stack_info = True)
     
     if callback.data.startswith('cancel '):
-        # TODO отмена заказа водителем
+        # TODO Уведомление пассажиру о том, что билет отменен водителем
         code_status = await crimgo_db.cancel_pass_code(callback, callback.data.replace('cancel ', ''))
         # Если код прошел проверку
         if code_status is True:
@@ -196,11 +188,17 @@ async def cmd_continue_trip(callback: types.CallbackQuery, state: FSMContext):
         # Инфо о конечной
         ending_station = await crimgo_db.get_ending_station_by_route(route_id_by_trip)
         trip_finish_time = await crimgo_db.get_trip_finish_time(callback.from_user.id)
+        
+        # Запись информации в state
+        async with state.proxy() as data:
+            data['route'] = route_id_by_trip
+            # Находим и сохраняем в state trip_id
+            data['trip_id'] = await crimgo_db.get_trip_id_by_driver(callback.from_user.id)
+
         # Обновление статуса поездки
         await crimgo_db.set_trip_status(callback, 'started', 'finished')
         await callback.message.answer('Конечная ост. - {pp}, время прибытия - {time}'.format(pp = ending_station, time = trip_finish_time.strftime("%H:%M")), reply_markup=kb_continue_trip)
-        async with state.proxy() as data:
-            data['route'] = route_id_by_trip
+
         # FSM конечная точка
         await FSMStartDriverShift.s_select_finish_point.set()
     else:
@@ -257,6 +255,16 @@ async def cmd_finish_trip(callback: types.CallbackQuery, state: FSMContext):
         data['driver_chat_id'] = callback.message.chat.id
         data['shuttle_name'] = await crimgo_db.get_shuttle_name_by_driver(callback)
         
+        # Собриаем в инфо о поездке
+        pass_trip_details = await crimgo_db.get_pass_trip_details(state)
+        # Отправляем 'Спасибо за поездку'
+        for push in pass_trip_details:
+            try: 
+                text = passenger_text.thanks_for_choose_us
+                await bot.send_message(chat_id = push[0], text = text, reply_markup = kb_pass)
+            except (Exception) as error:
+                logging.info(msg = error, stack_info = False)
+
         await crimgo_db.set_shuttle_position_by_pp_name(start_point, data['route'])
         await state.finish()
 
