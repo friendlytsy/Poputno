@@ -22,6 +22,10 @@ pass_onboarding = '  ✅  '
 
 pass_absent = '  ❌  '
 
+pass_refuse = 'Пассажир с билетом №{otp} отказался от поездки'
+
+trip_continue_after_refuse = 'Ясно, хочу продолжить маршрут'
+
 trip_continue = 'Для продолжения поездки, нажмите `Продолжить`'
 
 ticket_error_edit = 'Ошибка при отправке обновления сообщения: '

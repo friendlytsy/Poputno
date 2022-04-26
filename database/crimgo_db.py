@@ -1,3 +1,4 @@
+from distutils.log import error
 import psycopg2
 import datetime
 
@@ -513,7 +514,18 @@ async def route_id_by_trip(from_user_id):
 async def get_dict_of_tickets_by_shuttle_position(from_user_id, shuttle_position):
     try:
         cursor.execute(crimgo_db_crud.select_tickets_by_shuttle_position, (shuttle_position, from_user_id))
-        pp_tickets = [item[0] for item in cursor.fetchall()]
+        # pp_tickets = [item[0] for item in cursor.fetchall()]
+        pp_tickets = cursor.fetchall()
+        return pp_tickets
+    except (Exception, Error) as error:
+        logging.error(msg=error, stack_info=True)
+        return False
+
+async def get_dict_of_tickets_by_shuttle_position_with_refused(from_user_id, shuttle_position):
+    try:
+        cursor.execute(crimgo_db_crud.select_tickets_by_shuttle_position_with_refused, (shuttle_position, from_user_id))
+        # pp_tickets = [item[0] for item in cursor.fetchall()]
+        pp_tickets = cursor.fetchall()
         return pp_tickets
     except (Exception, Error) as error:
         logging.error(msg=error, stack_info=True)
@@ -829,5 +841,30 @@ async def get_trip_id_by_driver(telegram_id):
         cursor.execute(crimgo_db_crud.select_id_from_trip_by_driver, (telegram_id, ))
         trip_id = cursor.fetchone()[0]
         return trip_id
+    except (Exception, Error) as error:
+        logging.error(msg=error, stack_info=True)
+
+# Записать ИД поедзки, ИД пассажира номер билета и причину отказа в БД
+async def save_cancel_details(state):
+    try:
+        async with state.proxy() as data:
+            # Получаю trip_id
+            cursor.execute(crimgo_db_crud.select_trip_id_by_payment_id, (data['payment_id'], ))
+            trip_id = cursor.fetchone()
+            # Сохраяем данные в таблицу
+            cursor.execute(crimgo_db_crud.insert_into_cancel_details, (trip_id, data['pass_id'], data['payment_id'], data['cancel_reason']))
+            connection.commit()
+    except (Exception, Error) as error:
+        logging.error(msg=error, stack_info=True)
+
+async def update_ticket_status(state):
+    try:
+        async with state.proxy() as data:
+            # Получаю trip_id
+            cursor.execute(crimgo_db_crud.select_trip_id_by_payment_id, (data['payment_id'], ))
+            trip_id = cursor.fetchone()
+            # Обновляем данные в билета
+            cursor.execute(crimgo_db_crud.update_ticket_set_refused, (trip_id, data['payment_id']))
+            connection.commit()
     except (Exception, Error) as error:
         logging.error(msg=error, stack_info=True)

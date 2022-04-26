@@ -64,5 +64,14 @@ kb_cash_canceled = InlineKeyboardMarkup()
 btn_cash_cancel = InlineKeyboardButton(text = 'Я передумал', callback_data='Я передумал')
 kb_cash_canceled.add(btn_cash_cancel)
 
-#    s_checkout_query = State()
-#    s_successful_payment = State()
+async def get_cancel_keyboard(code):
+    kb_cash_canceled = InlineKeyboardMarkup()
+    btn_cash_cancel = InlineKeyboardButton(text = 'Я передумал', callback_data='cancel {code}'.format(code = code))
+    return kb_cash_canceled.add(btn_cash_cancel)
+
+kb_cancel_reason = InlineKeyboardMarkup()
+btn_too_long = InlineKeyboardButton(text = 'Долго', callback_data = 'cancel_reason Долго')
+btn_going_late = InlineKeyboardButton(text = 'Я не успеваю', callback_data = 'cancel_reason Я не успеваю')
+btn_changed_mind = InlineKeyboardButton(text = 'Передумал', callback_data = 'cancel_reason Передумал')
+btn_alternative_way = InlineKeyboardButton(text = 'Доберусь другим способом', callback_data = 'cancel_reason Доберусь другим способом')
+kb_cancel_reason.add(btn_too_long).add(btn_going_late).add(btn_changed_mind).add(btn_alternative_way)

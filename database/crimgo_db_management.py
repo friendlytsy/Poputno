@@ -41,6 +41,10 @@ def crimgo_check_tables(cursor, connection):
         cursor.execute(crimgo_db_crud.create_table_ticket)
         cursor.execute(crimgo_db_crud.alter_table_ticket_set_owner)
 
+    # -- Table: public.cancel_reason
+        cursor.execute(crimgo_db_crud.create_table_cancel_reason)
+        cursor.execute(crimgo_db_crud.alter_table_cancel_reason)
+
         connection.commit()
         logging.info(msg='Готово')
     except (Exception, Error) as error:

@@ -192,6 +192,20 @@ TABLESPACE pg_default;'''
 
 alter_table_ticket_set_owner = '''ALTER TABLE IF EXISTS public.ticket OWNER to postgres;'''
 
+# -- Table: public.cancel_details
+create_table_cancel_reason = '''CREATE TABLE IF NOT EXISTS public.cancel_details
+(
+    payment_id integer NOT NULL,
+    trip_id bigint NOT NULL,
+    pass_id bigint NOT NULL,
+    cancel_reason character varying COLLATE pg_catalog."default" NOT NULL,
+    CONSTRAINT cancel_details_pkey PRIMARY KEY (payment_id)
+)
+
+TABLESPACE pg_default;'''
+
+alter_table_cancel_reason = '''ALTER TABLE IF EXISTS public.cancel_details OWNER to postgres;'''
+
 ##################################################
 #                   SQL ЗАПРОСЫ                  #
 ##################################################
@@ -345,6 +359,12 @@ select_tickets_by_shuttle_position = '''SELECT otp FROM ticket WHERE pickup_poin
                                                                             FROM trip 
                                                                             WHERE status = \'started\' AND shuttle_id = (SELECT id FROM shuttle 
                                                                                                                             WHERE driver_id = %s))'''
+
+select_tickets_by_shuttle_position_with_refused = '''SELECT otp FROM ticket WHERE status = \'refused\' AND pickup_point = %s AND trip_id = (SELECT id 
+                                                                            FROM trip 
+                                                                            WHERE status = \'started\' AND shuttle_id = (SELECT id FROM shuttle 
+                                                                                                                            WHERE driver_id = %s))'''
+
 # Возвращает маршурт ИД по водителю
 select_route_id_by_driver = '''SELECT route FROM trip WHERE status = \'started\' AND shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s)'''
 
@@ -467,3 +487,12 @@ select_driver_id_from_trip = '''SELECT s.driver_id FROM shuttle AS s, trip AS t 
 
 # Возвращает ИД поездки по водителю
 select_id_from_trip_by_driver = '''SELECT id FROM trip WHERE status = \'started\' AND shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s)'''
+
+# Возвращает ИД поездки по пассажиру
+select_trip_id_by_payment_id = '''SELECT trip_id FROM ticket WHERE status = \'active\' AND payment_id = %s'''
+
+# Вставка причины отказа
+insert_into_cancel_details = '''INSERT INTO cancel_details (trip_id, pass_id, payment_id, cancel_reason) VALUES (%s, %s, %s, %s)'''
+
+# Обновление статуса билета
+update_ticket_set_refused = '''UPDATE ticket SET status = \'refused\' WHERE trip_id = %s AND status = \'active\' AND payment_id =  %s'''

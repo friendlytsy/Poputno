@@ -111,22 +111,34 @@ async def cmd_start_trip(callback: types.CallbackQuery):
     # Отобразить кнопку посадка
     await callback.message.answer(text, reply_markup=kb_onboarding_trip)
     
-    
 async def cmd_onboarding(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
     # Текущее местоположение шаттла
     shuttle_position = await crimgo_db.get_shuttle_position(callback)
 
-    # Получить кол-во билетов для остановки
+    # Получить кол-во active билетов для остановки 
     t_otp = await crimgo_db.get_dict_of_tickets_by_shuttle_position(callback.from_user.id, shuttle_position)
     
-    await callback.message.answer(driver_text.current_otps, reply_markup=ReplyKeyboardRemove())
-    for otp in t_otp:
-        await callback.message.answer(otp, reply_markup = InlineKeyboardMarkup().\
-            row(InlineKeyboardButton(driver_text.pass_onboarding, callback_data = 'activate {otp}'.format(otp = otp)),\
-                (InlineKeyboardButton(driver_text.pass_absent, callback_data = 'cancel {otp}'.format(otp = otp)))))
+    # Получить кол-во refused билетов для остановки 
+    t_otp_refused = await crimgo_db.get_dict_of_tickets_by_shuttle_position_with_refused(callback.from_user.id, shuttle_position)
     
+    await callback.message.answer(driver_text.current_otps, reply_markup=ReplyKeyboardRemove())
+    # Обход по активным билетам
+    for otp in t_otp:
+        await callback.message.answer(otp[0], reply_markup = InlineKeyboardMarkup().\
+            row(InlineKeyboardButton(driver_text.pass_onboarding, callback_data = 'activate {otp}'.format(otp = otp[0])),\
+                (InlineKeyboardButton(driver_text.pass_absent, callback_data = 'cancel {otp}'.format(otp = otp[0])))))
+    
+    # Обход по refused билетам
+    if len(t_otp) == 0:
+        for otp in t_otp_refused:
+            await callback.message.answer(driver_text.pass_refuse.format(otp = otp[0]), reply_markup = InlineKeyboardMarkup().\
+                row(InlineKeyboardButton(driver_text.trip_continue_after_refuse, callback_data = 'refused')))
+    else:
+        for otp in t_otp_refused:
+            await callback.message.answer(driver_text.pass_refuse.format(otp = otp[0]), reply_markup = InlineKeyboardMarkup())
+
     await FSMCodeVerification.s_code_input.set()    
     async with state.proxy() as data:
         # data['t_counter'] = t_otp
