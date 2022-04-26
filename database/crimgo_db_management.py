@@ -1,10 +1,9 @@
-import psycopg2
 from psycopg2 import Error
-
 import database.crimgo_db_crud as crimgo_db_crud
+import logging
 
 def crimgo_check_tables(cursor, connection):
-    print('Проверяем наличие таблиц, создаем если не существует')
+    logging.info(msg='Проверяем наличие таблиц, создаем если не существует')
     try:
     # -- Table: public.driver
         cursor.execute(crimgo_db_crud.create_table_driver)
@@ -42,8 +41,11 @@ def crimgo_check_tables(cursor, connection):
         cursor.execute(crimgo_db_crud.create_table_ticket)
         cursor.execute(crimgo_db_crud.alter_table_ticket_set_owner)
 
+    # -- Table: public.cancel_reason
+        cursor.execute(crimgo_db_crud.create_table_cancel_reason)
+        cursor.execute(crimgo_db_crud.alter_table_cancel_reason)
+
         connection.commit()
-        print('Готово')
+        logging.info(msg='Готово')
     except (Exception, Error) as error:
-        print("Ошибка при работе с PostgreSQL", error)
-        
+        logging.error(msg = error, stack_info = True)        

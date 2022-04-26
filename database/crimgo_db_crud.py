@@ -192,6 +192,20 @@ TABLESPACE pg_default;'''
 
 alter_table_ticket_set_owner = '''ALTER TABLE IF EXISTS public.ticket OWNER to postgres;'''
 
+# -- Table: public.cancel_details
+create_table_cancel_reason = '''CREATE TABLE IF NOT EXISTS public.cancel_details
+(
+    payment_id integer NOT NULL,
+    trip_id bigint NOT NULL,
+    pass_id bigint NOT NULL,
+    cancel_reason character varying COLLATE pg_catalog."default" NOT NULL,
+    CONSTRAINT cancel_details_pkey PRIMARY KEY (payment_id)
+)
+
+TABLESPACE pg_default;'''
+
+alter_table_cancel_reason = '''ALTER TABLE IF EXISTS public.cancel_details OWNER to postgres;'''
+
 ##################################################
 #                   SQL ЗАПРОСЫ                  #
 ##################################################
@@ -245,7 +259,7 @@ update_shuttle_remove_driver = '''UPDATE shuttle SET (driver_id, current_positio
 update_driver_remove_shift = '''UPDATE driver SET (on_shift, timestamp) = (false, %s)'''
 
 # Создание записи поездки
-insert_into_trip = '''INSERT INTO trip (shuttle_id, status, route, creation_time, available_seats, timestamp, start_time, finish_time) VALUES (%s, %s, (SELECT id FROM route WHERE name = %s), %s, (SELECT capacity FROM shuttle WHERE id = %s), %s, %s, %s) RETURNING id'''
+insert_into_trip = '''INSERT INTO trip (shuttle_id, status, route, creation_time, available_seats, timestamp, start_time, finish_time) VALUES (%s, %s, (SELECT id FROM route WHERE name = %s), %s, ((SELECT capacity FROM shuttle WHERE id = %s) - %s), %s, %s, %s) RETURNING id'''
 
 # Обновление времени поездки
 update_trip_set_time_delta = '''UPDATE trip SET (start_time, finish_time) = (start_time + %s, finish_time + %s) WHERE id = %s'''
@@ -253,11 +267,20 @@ update_trip_set_time_delta = '''UPDATE trip SET (start_time, finish_time) = (sta
 # Возвращает ИД шаттла на маршоуте, который стоит дольше всех
 select_from_shuttle_order_by_timestamp = '''SELECT id FROM shuttle WHERE driver_id is not null AND current_position = (select min(id) from pickup_point where route_id = (SELECT id FROM route WHERE name = %s)) order by timestamp DESC'''
 
+# Возвращает кол-во поездок которые назначены на шаттл
+select_count_of_trip_by_shuttle_id = '''SELECT COUNT(*) FROM trip WHERE shuttle_id = %s AND status = \'awaiting_passengers\' OR status = \'scheduled\''''
+
 # Возвращает ближайшие шаттлы на противополжном маршруте, не считаю начальную остановку
 select_from_shuttle_opposite_route = '''SELECT id FROM shuttle WHERE driver_id is not null AND current_position between (select min(id)+1 from pickup_point where route_id = (SELECT id FROM route WHERE name = %s)) and (select max(id) from pickup_point where route_id = (SELECT id FROM route WHERE name = %s)) order by timestamp DESC'''
 
-# Возвращает ИД поедок с статусом ждем пассажиров
-select_trip_id_status_awaiting_pass = '''SELECT id FROM trip WHERE route = (SELECT id FROM route WHERE name = %s) AND available_seats > 0 and status = \'awaiting_passengers\''''
+# Возвращает ИД поездок с статусом ждем пассажиров
+select_trip_id_status_awaiting_pass = '''SELECT id FROM trip WHERE route = (SELECT id FROM route WHERE name = %s) AND available_seats > 0 and status = \'awaiting_passengers\' ORDER BY creation_time'''
+
+# Возвращает ИД поедок с статусом ждем пассажиров и определенного кол-ва мест
+# select_trip_id_status_awaiting_pass_with_specified_seats = '''SELECT id FROM trip WHERE route = (SELECT id FROM route WHERE name = %s) AND available_seats >= %s and status = \'awaiting_passengers\' ORDER BY creation_time DESC'''
+
+# Возвращает ИД поедок с статусом ждем пассажиров и резервирует места если они есть
+update_trip_and_reserve_seats_return_id = '''UPDATE trip SET available_seats = available_seats - %s WHERE id = (SELECT id FROM trip WHERE route = (SELECT id FROM route WHERE name = %s) AND available_seats >= %s and status = \'awaiting_passengers\' ORDER BY creation_time FETCH FIRST ROW ONLY) RETURNING id'''
 
 # Вычет заказанных мест из поездки
 update_trip_decrement_seats = '''UPDATE trip SET (available_seats, timestamp) = (available_seats - %s, %s) WHERE id = %s'''
@@ -278,9 +301,13 @@ insert_into_ticket = '''INSERT INTO ticket (payment_id, trip_id, pickup_point, b
 # Возвращает детали поездки, t.id, r.name, t.start_time
 select_trip_available = '''SELECT t.id, r.name, t.creation_time FROM trip AS t, route AS r WHERE t.shuttle_id = (SELECT id FROM shuttle WHERE name = %s) AND t.status = \'scheduled\' AND t.route = r.id'''
 
-# Возвращает поездкт по видителю
-select_trip_available_by_driver = '''SELECT t.id, r.name, t.start_time FROM trip AS t, route AS r WHERE t.shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s) AND t.status = \'scheduled\' OR t.status = \'awaiting_passengers\' AND t.route = r.id'''
+# Возвращает поездки по видителю
+select_trip_available_by_driver = '''SELECT t.id, r.name, t.start_time FROM trip AS t, route AS r WHERE t.status = \'scheduled\' OR t.status = \'awaiting_passengers\' AND t.route = %s AND t.shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s) AND t.route = r.id ORDER BY t.start_time'''
 
+# Возвращает позицию шаттла по ИД водителя 
+select_shuttle_position = '''SELECT current_position FROM shuttle WHERE driver_id = %s'''
+
+# Возвращает поездку по ИД
 select_trip_details = '''SELECT t.id, r.name, t.start_time, t.finish_time FROM trip AS t, route as r WHERE t.id = %s and r.id = t.route'''
 
 # Возвращает вместимость шаттла
@@ -332,6 +359,12 @@ select_tickets_by_shuttle_position = '''SELECT otp FROM ticket WHERE pickup_poin
                                                                             FROM trip 
                                                                             WHERE status = \'started\' AND shuttle_id = (SELECT id FROM shuttle 
                                                                                                                             WHERE driver_id = %s))'''
+
+select_tickets_by_shuttle_position_with_refused = '''SELECT otp FROM ticket WHERE status = \'refused\' AND pickup_point = %s AND trip_id = (SELECT id 
+                                                                            FROM trip 
+                                                                            WHERE status = \'started\' AND shuttle_id = (SELECT id FROM shuttle 
+                                                                                                                            WHERE driver_id = %s))'''
+
 # Возвращает маршурт ИД по водителю
 select_route_id_by_driver = '''SELECT route FROM trip WHERE status = \'started\' AND shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s)'''
 
@@ -366,6 +399,9 @@ update_shutlle_set_position = '''UPDATE shuttle SET current_position = %s WHERE 
 
 # Обновление статуса параметром
 update_trip_set_status = '''UPDATE trip SET status = %s WHERE status = %s AND shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s)'''
+
+# Обновление статуса параметром через trip_id
+update_trip_set_status_by_id = '''UPDATE trip SET status = %s WHERE id = %s AND status = \'awaiting_passengers\' OR status = \'scheduled\' AND shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s)'''
 
 # Возвращает p.pass_id, t.booked_seats
 select_pass_seat = '''SELECT p.pass_id, t.booked_seats FROM payment AS p, ticket AS t WHERE p.id = (SELECT payment_id FROM ticket WHERE status = \'active\' AND otp = %s AND trip_id = (SELECT id FROM trip WHERE status = \'started\' AND shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s))) AND p.id = t.payment_id'''
@@ -438,7 +474,25 @@ select_count_from_driver_where_on_shift = '''SELECT COUNT(*) FROM driver WHERE o
 select_name_from_driver = '''SELECT name FROM driver WHERE telegram_id = (SELECT driver_id FROM shuttle WHERE id = (SELECT shuttle_id FROM trip WHERE id = %s))'''
 
 # Возвращает точку высадки
-select_drop_point_from_pp = '''SELECT name FROM pickup_point WHERE id = (SELECT drop_point FROM ticket WHERE trip_id = %s)'''
+select_drop_point_from_pp = '''SELECT name FROM pickup_point WHERE id = (SELECT drop_point FROM ticket WHERE trip_id = %s and id = %s)'''
 
 # Возвращает тотал 
-select_total_amount_from_payment_by_trip_id = '''SELECT total_amount FROM payment WHERE id = (SELECT payment_id FROM ticket WHERE trip_id = %s)'''
+select_total_amount_from_payment_by_trip_id = '''SELECT total_amount FROM payment WHERE id = (SELECT payment_id FROM ticket WHERE trip_id = %s and id = %s)'''
+
+# Возвращает true/false если назначены поездки
+select_is_assigned_on_driver = '''SELECT EXISTS (SELECT FROM trip WHERE status = \'scheduled\' or status = \'awaiting_passengers\' AND shuttle_id = (SELECT id from shuttle where driver_id = %s))'''
+
+# Возвращает ИД водителя по поездке
+select_driver_id_from_trip = '''SELECT s.driver_id FROM shuttle AS s, trip AS t WHERE t.id = %s AND t.shuttle_id = s.id'''
+
+# Возвращает ИД поездки по водителю
+select_id_from_trip_by_driver = '''SELECT id FROM trip WHERE status = \'started\' AND shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s)'''
+
+# Возвращает ИД поездки по пассажиру
+select_trip_id_by_payment_id = '''SELECT trip_id FROM ticket WHERE status = \'active\' AND payment_id = %s'''
+
+# Вставка причины отказа
+insert_into_cancel_details = '''INSERT INTO cancel_details (trip_id, pass_id, payment_id, cancel_reason) VALUES (%s, %s, %s, %s)'''
+
+# Обновление статуса билета
+update_ticket_set_refused = '''UPDATE ticket SET status = \'refused\' WHERE trip_id = %s AND status = \'active\' AND payment_id =  %s'''

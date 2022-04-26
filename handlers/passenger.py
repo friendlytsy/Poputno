@@ -1,20 +1,25 @@
 from aiogram import Dispatcher, types
 from aiogram.dispatcher import FSMContext
-from aiogram.types.message import ContentType
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.dispatcher.filters import Text
-from datetime import datetime, timedelta
+from datetime import timedelta
 
-from create_bot import dp, bot
+from create_bot import bot
 from database import crimgo_db
-from keyboards import kb_pass, kb_driver, kb_path, kb_seat, kb_geoposition, kb_pp_confirmation, kb_trip_confirmation, kb_payment_type, kb_driver_shift, kb_generic_start, kb_start_trip, kb_onboarding_trip
+from keyboards import kb_pass, kb_driver, kb_path, kb_seat, kb_geoposition, kb_pp_confirmation, kb_trip_confirmation, kb_payment_type, kb_driver_shift, kb_generic_start, kb_cancel_reason
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from random import randrange
 
 from config import config
 
+import logging
+from keyboards.pass_kb import get_cancel_keyboard
+
 from text import passenger_text
 from text import driver_text
+
+from helper import passenger_helper
 
 # Машина состояний для покупки билета
 class FSMOrder_trip(StatesGroup):
@@ -26,8 +31,12 @@ class FSMOrder_trip(StatesGroup):
     s_payment_type = State()
 
 # Машина состояний для покупки абонемента
-class FSMOrder_subscribe(StatesGroup):
-    s_payment_subscribe = State()
+# class FSMOrder_subscribe(StatesGroup):
+#     s_payment_subscribe = State()
+
+# Машина состоний для отмены заказа пользователем
+class FSMCancel_order(StatesGroup):
+    s_cancel_order = State()
 
 # Старт и онбординг
 async def commands_start(message: types.Message):
@@ -65,7 +74,7 @@ async def cmd_order_trip(message: types.Message, state: FSMContext):
     await FSMOrder_trip.s_route_selection.set()
     msg = await message.answer(passenger_text.start_trip_awaiting, reply_markup=kb_path) 
     # Сохраняем ИД сообщения
-    await update_msg_list([msg.message_id], state)
+    await passenger_helper.update_msg_list([msg.message_id], state)
 
 # Выбор маршрута
 async def menu_route_selection(callback: types.CallbackQuery, state: FSMContext):
@@ -76,17 +85,17 @@ async def menu_route_selection(callback: types.CallbackQuery, state: FSMContext)
                 if callback.data == 'К морю':
                     data['opposite'] = 'От моря'
                 else: data['opposite'] = 'К морю'
-                # # Удаление предыдущего сообщения
-                await remove_messages(callback.from_user.id, data['msg'])
+                # Удаление предыдущего сообщения
+                await passenger_helper.remove_messages(callback.from_user.id, data['msg'])
 
         msg = await callback.message.answer(passenger_text.to_choose_seats, reply_markup=kb_seat)
         # Сохраняем ИД сообщения
-        await update_msg_list([msg.message_id], state)
+        await passenger_helper.update_msg_list([msg.message_id], state)
         await callback.answer()
     else:
         # Удаление предыдущего сообщения
         async with state.proxy() as data:
-            await remove_messages(callback.from_user.id, data['msg'])
+            await passenger_helper.remove_messages(callback.from_user.id, data['msg'])
 
         await callback.answer()
         await state.finish()
@@ -99,19 +108,19 @@ async def menu_seat_selection(callback: types.CallbackQuery, state: FSMContext):
         async with state.proxy() as data:
                 data['seat'] = callback.data
                 # Удаление предыдущего сообщения
-                await remove_messages(callback.from_user.id, data['msg'])
+                await passenger_helper.remove_messages(callback.from_user.id, data['msg'])
         msg_seats = await callback.message.answer(passenger_text.chosen_seats.format(seats = callback.data))
         if data['route'] == 'К морю':
             msg = await callback.message.answer(passenger_text.to_choose_pickup_point, reply_markup=kb_geoposition)
         if data['route'] == 'От моря':
             msg = await callback.message.answer(passenger_text.to_choose_drop_point, reply_markup=kb_geoposition)
         # Сохраняем ИД сообщения
-        await update_msg_list([msg.message_id, msg_seats.message_id], state)
+        await passenger_helper.update_msg_list([msg.message_id, msg_seats.message_id], state)
         await callback.answer()
     else:
         # Удаление предыдущего сообщения
         async with state.proxy() as data:
-            await remove_messages(callback.from_user.id, data['msg'])
+            await passenger_helper.remove_messages(callback.from_user.id, data['msg'])
         await callback.answer()
         await state.finish()
         await callback.message.answer(passenger_text.order_canceled, reply_markup=kb_pass)    
@@ -123,7 +132,7 @@ async def menu_pp_confirm(callback: types.CallbackQuery, state: FSMContext):
             await FSMOrder_trip.s_pp_confirmation.set()
             async with state.proxy() as data:
                 # Удаление предыдущего сообщения
-                await remove_messages(callback.from_user.id, data['msg'])
+                await passenger_helper.remove_messages(callback.from_user.id, data['msg'])
                 # Если маршрут к морю
                 if data['route'] == 'К морю':
                     data['pickup_point'] = callback.data
@@ -133,7 +142,10 @@ async def menu_pp_confirm(callback: types.CallbackQuery, state: FSMContext):
                     data['pickup_point'] = 'Успенская церковь'
                     data['drop_point'] = callback.data
             pp_location = await crimgo_db.get_pp_location(callback.data, data['route'])
-            msg_location = await bot.send_location(chat_id=callback.from_user.id, latitude=pp_location[0], longitude=pp_location[1])
+            try:
+                msg_location = await bot.send_location(chat_id=callback.from_user.id, latitude=pp_location[0], longitude=pp_location[1])
+            except (Exception) as error:
+                logging.error(msg = error, stack_info = True)
             async with state.proxy() as data:
                 data['msg_location'] = [msg_location.message_id]
             if data['route'] == 'К морю':
@@ -141,20 +153,20 @@ async def menu_pp_confirm(callback: types.CallbackQuery, state: FSMContext):
             if data['route'] == 'От моря':
                 msg = await callback.message.answer(passenger_text.you_chosen_drop_point.format(dp = data['drop_point']), reply_markup=kb_pp_confirmation)
             # Сохраняем ИД сообщения
-            await update_msg_list([msg.message_id], state)
+            await passenger_helper.update_msg_list([msg.message_id], state)
         else:
             async with state.proxy() as data:
                 # Удаление предыдущего сообщения
-                await remove_messages(callback.from_user.id, data['msg'])
+                await passenger_helper.remove_messages(callback.from_user.id, data['msg'])
             await FSMOrder_trip.s_seat_selection.set()
             msg = await callback.message.answer(passenger_text.to_choose_seats, reply_markup=kb_seat)
             # Сохраняем ИД сообщения
-            await update_msg_list([msg.message_id], state)
+            await passenger_helper.update_msg_list([msg.message_id], state)
         await callback.answer()
     else:
         # Удаление предыдущего сообщения
         async with state.proxy() as data:
-            await remove_messages(callback.from_user.id, data['msg'])
+            await passenger_helper.remove_messages(callback.from_user.id, data['msg'])
         await callback.answer()
         await state.finish()
         await callback.message.answer(passenger_text.order_canceled, reply_markup=kb_pass)
@@ -164,67 +176,49 @@ async def menu_trip_confirm(callback: types.CallbackQuery, state: FSMContext):
     if callback.data != passenger_text.cancel:
         if callback.data != 'Повторить':
             await FSMOrder_trip.s_trip_confirmation.set()
-            async with state.proxy() as data:
-                    data['pp_confirm'] = callback.data
-                    # Ищем цена билета и считаем итог
-                    if data['route'] == 'К морю':
-                        price = await crimgo_db.get_pickup_point_price(data['pickup_point'], data['route'])
-                    else:
-                        price = await crimgo_db.get_pickup_point_price(data['drop_point'], data['route'])
-                    if price is not None: 
-                        data['total_amount'] = int(data['seat'])*price
-                    # Удаление предыдущего сообщения
-                    await remove_messages(callback.from_user.id, data['msg'])
+            # Сохраняем total_amount
+            await passenger_helper.update_state_with_total_amount(callback, state)
+            # Удаление предыдущего сообщения
+            await passenger_helper.remove_messages(callback.from_user.id, await passenger_helper.get_data_from_state('msg', state))
             #########
+            # Создание и назначение поездки
             #########
+            # Если есть есть хоть кто-то в смене
             if (await crimgo_db.is_any_on_shift() != 0):
-                # если нет trip с указаным маршрутом, создаем его
-                trip_id = await crimgo_db.is_trip_with_route(state)
-                if (trip_id is None):
-                    trip_id = await crimgo_db.create_trip(state)
-                    # Определить 
+                trip_id = await crimgo_db.is_trip_with_route_and_seats(state)
+                # Если нет открытых поездкок с ожидающим шаттом на текущем маршруте, учитываем кол-во желаемых мест
+                if trip_id is None:
+                    # Содание поездки
+                    trip_id = await crimgo_db.create_trip(state)   
+                    # Если успешно создана
                     if (trip_id is False):
                         msg = await callback.message.answer(passenger_text.service_temporary_unavailable)
-                        # Сохраняем ИД сообщения
-                        await update_msg_list([msg.message_id], state)
-                        await callback.answer()
-                        await state.finish()
                     else:
-                        async with state.proxy() as data:
-                            data['trip_id'] = trip_id    
+                        await passenger_helper.save_data_to_state(trip_id, 'trip_id', state)
+                        # Считаем время приблизительное подбора
+                        aprox_time = await crimgo_db.calculate_raw_pickup_time(state)
+                        # Сохраняет aprox_time в state
+                        await passenger_helper.save_data_to_state(aprox_time, 'aprox_time', state)
+                        # Отвечаем пассмажиру с приблизительным временем посадки
+                        msg = await callback.message.answer(passenger_text.approx_pickup_time.format(time = aprox_time), reply_markup=kb_trip_confirmation)
+                        # Сохраняем ИД сообщения
+                        await passenger_helper.update_msg_list([msg.message_id], state)
+                        await callback.answer()
+                # Если найдена поездка которую можно дополнить пассажирами
                 else:
-                    async with state.proxy() as data:
-                        data['trip_id'] = trip_id 
-
-                # Проверка нужен ли пуш, если None, route ближейшего шаттла не равно data['route'] билета
-                is_push_needed = await crimgo_db.is_push_needed(state)
-                if is_push_needed is None:
-                    # Обновляем время в поездке, прибавялем 30 минуту
-                    ADD_DELTA_TIME = timedelta(minutes = 30)
-                    await crimgo_db.update_trip_set_time_delta(state, ADD_DELTA_TIME)
-
-                # Проверка на кол-во доступных мест
-                if (await crimgo_db.seat_availability(state)) is True:
+                    await passenger_helper.save_data_to_state(trip_id, 'trip_id', state)
+                    # Считаем время приблизительное подбора
                     aprox_time = await crimgo_db.calculate_raw_pickup_time(state)
-                    async with state.proxy() as data:
-                        data['aprox_time'] = aprox_time
+                    # Сохраняет aprox_time в state
+                    await passenger_helper.save_data_to_state(aprox_time, 'aprox_time', state)
+                    # Отвечаем пассмажиру с приблизительным временем посадки
                     msg = await callback.message.answer(passenger_text.approx_pickup_time.format(time = aprox_time), reply_markup=kb_trip_confirmation)
                     # Сохраняем ИД сообщения
-                    await update_msg_list([msg.message_id], state)
+                    await passenger_helper.update_msg_list([msg.message_id], state)
                     await callback.answer()
-                else:
-                    # if trip_id is None or False:
-                    msg = await callback.message.answer(passenger_text.no_such_seats_amount, reply_markup=kb_pass)
-                    # Сохраняем ИД сообщения
-                    await update_msg_list([msg.message_id], state)
-                    await callback.answer()
-                    await state.finish()
+            # в противном случае кидаем сообщение что сервис не доступен
             else:
-                msg = await callback.message.answer(passenger_text.service_temporary_unavailable)
-                # Сохраняем ИД сообщения
-                await update_msg_list([msg.message_id], state)
-                await callback.answer()
-                await state.finish()
+                await passenger_helper.notify_service_unavailable(callback, state)
         else:
             await FSMOrder_trip.s_geolocation.set()
             await callback.answer()
@@ -236,15 +230,15 @@ async def menu_trip_confirm(callback: types.CallbackQuery, state: FSMContext):
                 msg = await callback.message.answer(passenger_text.to_choose_drop_point, reply_markup=kb_geoposition)
             async with state.proxy() as data:
                 # Удаление предыдущего сообщения
-                await remove_messages(callback.from_user.id, data['msg'])
-                await remove_messages(callback.from_user.id, data['msg_location'])
+                await passenger_helper.remove_messages(callback.from_user.id, data['msg'])
+                await passenger_helper.remove_messages(callback.from_user.id, data['msg_location'])
             # Сохраняем ИД сообщения
-            await update_msg_list([msg.message_id], state)
+            await passenger_helper.update_msg_list([msg.message_id], state)
     else:
         async with state.proxy() as data:
             # Удаление предыдущего сообщения
-            await remove_messages(callback.from_user.id, data['msg'])
-            await remove_messages(callback.from_user.id, data['msg_location'])
+            await passenger_helper.remove_messages(callback.from_user.id, data['msg'])
+            await passenger_helper.remove_messages(callback.from_user.id, data['msg_location'])
         await callback.answer()
         await state.finish()
         await callback.message.answer(passenger_text.order_canceled, reply_markup=kb_pass)
@@ -256,9 +250,9 @@ async def menu_payment_type(callback: types.CallbackQuery, state: FSMContext):
         async with state.proxy() as data:
             data['trip_confirm'] = callback.data
             # Удаление предыдущего сообщения
-            await remove_messages(callback.from_user.id, data['msg'])
+            await passenger_helper.remove_messages(callback.from_user.id, data['msg'])
         msg = await callback.message.answer(passenger_text.pre_order.format(seat = data['seat'], total_amount= data['total_amount']), reply_markup=kb_payment_type)
-        await update_msg_list([msg.message_id], state)
+        await passenger_helper.update_msg_list([msg.message_id], state)
     else:
         await crimgo_db.restore_booked_seats(state)
         await callback.message.answer(passenger_text.order_canceled)
@@ -278,20 +272,22 @@ async def menu_handle_payment(callback: types.CallbackQuery, state: FSMContext):
             data['otp'] = randrange(1000, 9999, 1)
             data['pass_id'] = callback.from_user.id
             # Удаление предыдущего сообщения
-            await remove_messages(callback.from_user.id, data['msg'])
+            await passenger_helper.remove_messages(callback.from_user.id, data['msg'])
         
         payment_id = await crimgo_db.successful_payment(state)
         total_amount = await crimgo_db.get_total_amount(payment_id)
         driver_name = await crimgo_db.get_driver_name_by_trip(data['trip_id'])
-        msg = await callback.message.answer(passenger_text.check_order.format(total_amount=total_amount, otp=data['otp'], aprox_time = data['aprox_time'], driver_name = driver_name, pickup_point = data['pickup_point'], drop_point = data['drop_point']))
+        cancel_keyboard = await get_cancel_keyboard(payment_id)
+        msg = await callback.message.answer(passenger_text.check_order.format(total_amount=total_amount, otp=data['otp'], aprox_time = data['aprox_time'], driver_name = driver_name, pickup_point = data['pickup_point'], drop_point = data['drop_point']), reply_markup = cancel_keyboard)
         # Запись в БД данных для пуша пассажиру
         await crimgo_db.save_pass_message_id(callback.from_user.id, msg.message_id, msg.chat.id)
         # Проверка нужен ли пуш, если None, route ближейшего шаттла не равно data['route'] билета
         is_push_needed = await crimgo_db.is_push_needed(state)
         # Создание билета в БД       
         ticket_id = await crimgo_db.create_ticket(state, payment_id)
-        # Пересмотр статуса поездки
-        await crimgo_db.trip_status_review(state)
+        if is_push_needed:
+            # Пересмотр статуса поездки
+            await crimgo_db.trip_status_review(state)
         # Информация о чате для пуша водителю
         driver_chat_id = await crimgo_db.get_driver_chat_id(state)
         
@@ -326,7 +322,9 @@ async def push_messages(user_id, state, ticket_id, driver_chat_id):
                 if data['route'] == 'От моря':
                     ticket_dp_time = await crimgo_db.ticket_dp_time(ticket_id)
                     text = driver_text.new_ticket_assigned.format(pickup_point = data['drop_point'], pickup_time = (ticket_dp_time + config.TIME_OFFSET).strftime("%H:%M"), seats = data['seat'])    
-                msg = await bot.send_message(driver_chat_id[0], text, reply_markup=kb_start_trip)
+                # msg = await bot.send_message(driver_chat_id[0], text, reply_markup=kb_start_trip)
+                # В callback вставляю id поездки
+                msg = await bot.send_message(driver_chat_id[0], text, reply_markup=InlineKeyboardMarkup().add(InlineKeyboardButton(text = 'Начать рейс', callback_data='Начать рейс {trip_id}'.format(trip_id=data['trip_id'])))) 
                 await crimgo_db.set_shuttle_message_id(msg.message_id, state)
                 await crimgo_db.save_message_id_and_text(state, text)
 
@@ -354,18 +352,16 @@ async def push_messages(user_id, state, ticket_id, driver_chat_id):
                     driver_chat_id = await crimgo_db.get_driver_chat_id(state)
 
                     # Редактируем последее сообщение(удаляем/отправляем и сохраняем)
-                    # await bot.edit_message_text(chat_id = driver_chat_id[0], message_id = driver_chat_id[1], text = text, reply_markup=kb_start_trip)
                     await bot.delete_message(chat_id = driver_chat_id[0], message_id = driver_chat_id[1])
-                    updated_msg = await bot.send_message(chat_id = driver_chat_id[0], text = text, reply_markup = kb_start_trip)
+                    updated_msg = await bot.send_message(chat_id = driver_chat_id[0], text = text, reply_markup=InlineKeyboardMarkup().add(InlineKeyboardButton(text = 'Начать рейс', callback_data='Начать рейс {trip_id}'.format(trip_id=data['trip_id']))))
                     await crimgo_db.set_shuttle_message_id(updated_msg.message_id, state)
                     await crimgo_db.save_message_id_and_text(state, text)
-
 
                     # Редактируем сообщения пользователей
                     pass_trip_details = await crimgo_db.get_pass_trip_details(state)
                     driver_name = await crimgo_db.get_driver_name_by_trip(data['trip_id'])
-                    drop_point = await crimgo_db.get_drop_point_by_trip(data['trip_id'])
-                    total_amount = await crimgo_db.get_total_amount_by_trip(data['trip_id'])
+                    drop_point = await crimgo_db.get_drop_point_by_trip(data['trip_id'], ticket_id)
+                    total_amount = await crimgo_db.get_total_amount_by_trip(data['trip_id'], ticket_id)
                     for push in pass_trip_details:
                         try: 
                             text = passenger_text.new_pickup_point_time.format(time = (push[2]).strftime("%H:%M"), pickup_point = push[3], otp = push[4], driver_name = driver_name, drop_point = drop_point, total_amount = total_amount)
@@ -373,9 +369,8 @@ async def push_messages(user_id, state, ticket_id, driver_chat_id):
                             updated_msg = await bot.send_message(chat_id = push[0], text = text, reply_markup = None)
                             # Запись в БД данных для пуша пассажиру
                             await crimgo_db.save_pass_message_id(user_id, updated_msg.message_id, updated_msg.chat.id)
-                            # await bot.edit_message_text(chat_id = push[0], message_id = push[1], text = text, reply_markup=None)
                         except (Exception) as error:
-                            print(passenger_text.error_sending_message, error)
+                            logging.info(msg = error, stack_info = False)
 
             else:
                 # Нотификация водителя о новых билетах
@@ -387,7 +382,11 @@ async def push_messages(user_id, state, ticket_id, driver_chat_id):
                 if data['route'] == 'От моря':
                     ticket_dp_time = await crimgo_db.ticket_dp_time(ticket_id)
                     text = tmp + '\nОст. {pickup_point}, {pickup_time}, {seats}м'.format(pickup_point = data['drop_point'], pickup_time = (ticket_dp_time + config.TIME_OFFSET).strftime("%H:%M"), seats = data['seat'])    
-                await bot.edit_message_text(chat_id = driver_chat_id[0], message_id = driver_chat_id[1], text = text, reply_markup=kb_start_trip)
+                try:
+                    await bot.edit_message_text(chat_id = driver_chat_id[0], message_id = driver_chat_id[1], text = text, reply_markup=InlineKeyboardMarkup().add(InlineKeyboardButton(text = 'Начать рейс', callback_data='Начать рейс {trip_id}'.format(trip_id=data['trip_id']))))
+                except (Exception) as error:
+                    logging.info(msg = error, stack_info = False)
+                
                 await crimgo_db.save_message_id_and_text(state, text)
                 # Проверка статуса рейса и отправка нотификации водителю и пассажиру об изменении начала рейса
                 status = await crimgo_db.trip_status(state)
@@ -409,17 +408,16 @@ async def push_messages(user_id, state, ticket_id, driver_chat_id):
                             text = text + 'Ост. {pp}, {time}, {seats}м\n'.format(pp = i[0], time = (i[2] + config.TIME_OFFSET).strftime("%H:%M"), seats = i[1])
                    
                     # Редактируем последее сообщение
-                    # await bot.edit_message_text(chat_id = driver_chat_id[0], message_id = driver_chat_id[1], text = text, reply_markup=kb_start_trip)
                     await bot.delete_message(chat_id = driver_chat_id[0], message_id = driver_chat_id[1])
-                    updated_msg = await bot.send_message(chat_id = driver_chat_id[0], text = text, reply_markup = kb_start_trip)
+                    updated_msg = await bot.send_message(chat_id = driver_chat_id[0], text = text, reply_markup=InlineKeyboardMarkup().add(InlineKeyboardButton(text = 'Начать рейс', callback_data='Начать рейс {trip_id}'.format(trip_id=data['trip_id']))))
                     await crimgo_db.set_shuttle_message_id(updated_msg.message_id, state)
                     await crimgo_db.save_message_id_and_text(state, text)
 
                     # Редактируем сообщения пользователей
                     pass_trip_details = await crimgo_db.get_pass_trip_details(state)
                     driver_name = await crimgo_db.get_driver_name_by_trip(data['trip_id'])
-                    drop_point = await crimgo_db.get_drop_point_by_trip(data['trip_id'])
-                    total_amount = await crimgo_db.get_total_amount_by_trip(data['trip_id'])
+                    drop_point = await crimgo_db.get_drop_point_by_trip(data['trip_id'], ticket_id)
+                    total_amount = await crimgo_db.get_total_amount_by_trip(data['trip_id'], ticket_id)
                     for push in pass_trip_details:
                         try: 
                             text = passenger_text.new_pickup_point_time.format(time = (push[2]).strftime("%H:%M"), pickup_point = push[3], otp = push[4], driver_name = driver_name, drop_point = drop_point, total_amount = total_amount)
@@ -427,23 +425,34 @@ async def push_messages(user_id, state, ticket_id, driver_chat_id):
                             updated_msg = await bot.send_message(chat_id = push[0], text = text, reply_markup = None)
                             # Запись в БД данных для пуша пассажиру
                             await crimgo_db.save_pass_message_id(user_id, updated_msg.message_id, updated_msg.chat.id)
-                            # await bot.edit_message_text(chat_id = push[0], message_id = push[1], text = text, reply_markup=None)
                         except (Exception) as error:
-                            print(passenger_text.error_sending_message, error)
+                            logging.info(msg = error, stack_info = False)
 
-# Удаления сообщений в списке msg_id_list
-async def remove_messages(chat_id, msg_id_list):
-    for msg in msg_id_list:
-        await bot.delete_message(chat_id=chat_id, message_id=msg)
+async def cmd_cancel_order(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    # Записать code билета в FSM
+    await passenger_helper.save_data_to_state(callback.data.replace('cancel ', ''), 'payment_id', state)
 
-# Добавления сообщений в data['msg']
-async def update_msg_list(msg_id_list, state: FSMContext):
-    async with state.proxy() as data:
-        # Пустой лист
-        msg_list = []
-        # Добавляем ИД в список
-        msg_list.extend(msg_id_list)
-        data['msg'] = msg_list
+    # Выбор Причины отказа 
+    await callback.message.reply(passenger_text.cancel_reason_options, reply_markup = kb_cancel_reason)
+    
+    # Перейти в статут ожидания ответа
+    await FSMCancel_order.s_cancel_order.set()
+
+async def cmd_cancel_reason(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    # Сохраняем причину отказа и ИД пассижира в state
+    await passenger_helper.save_data_to_state(callback.data.replace('cancel_reason ', ''), 'cancel_reason', state)
+    await passenger_helper.save_data_to_state(callback.from_user.id, 'pass_id', state)
+    # Записать ИД поедзки, ИД пассажира номер билета и причину отказа в БД
+    await crimgo_db.save_cancel_details(state)
+    # Меняем статус билета
+    await crimgo_db.update_ticket_status(state)
+    # Благодарим за пояснение причины отказа
+    await callback.message.reply(passenger_text.order_canceled_with_reason, reply_markup=kb_pass)
+    # Оповестить водителя?
+
+    await state.finish()
 
 def register_handlers_client(dp: Dispatcher):
     dp.register_message_handler(commands_start, commands=['start', 'help'])
@@ -456,3 +465,5 @@ def register_handlers_client(dp: Dispatcher):
     dp.register_callback_query_handler(menu_trip_confirm, state=FSMOrder_trip.s_pp_confirmation)
     dp.register_callback_query_handler(menu_payment_type, state=FSMOrder_trip.s_trip_confirmation)
     dp.register_callback_query_handler(menu_handle_payment, state=FSMOrder_trip.s_payment_type)
+    dp.register_callback_query_handler(cmd_cancel_order, Text(startswith='cancel ', ignore_case=True))
+    dp.register_callback_query_handler(cmd_cancel_reason, state=FSMCancel_order.s_cancel_order)
