@@ -852,7 +852,7 @@ async def save_cancel_details(state):
             cursor.execute(crimgo_db_crud.select_trip_id_by_payment_id, (data['payment_id'], ))
             trip_id = cursor.fetchone()
             # Сохраяем данные в таблицу
-            cursor.execute(crimgo_db_crud.insert_into_cancel_details, (trip_id, data['pass_id'], data['payment_id'], data['cancel_reason']))
+            cursor.execute(crimgo_db_crud.insert_into_cancel_details, (trip_id, data['pass_id'], data['payment_id'], data['cancel_reason'], datetime.datetime.now()))
             connection.commit()
     except (Exception, Error) as error:
         logging.error(msg=error, stack_info=True)

@@ -310,7 +310,7 @@ async def menu_handle_payment(callback: types.CallbackQuery, state: FSMContext):
 # Пуш водителю или пасажару
 async def push_messages(user_id, state, ticket_id, driver_chat_id):
     async with state.proxy() as data:
-            # Если чат ID не пуст
+        # Если чат ID не пуст
         if driver_chat_id[0] is not None:
             is_first_ticket = await crimgo_db.is_first_ticket(state)
             # Первый билет в рейсе
@@ -366,7 +366,7 @@ async def push_messages(user_id, state, ticket_id, driver_chat_id):
                         try: 
                             text = passenger_text.new_pickup_point_time.format(time = (push[2]).strftime("%H:%M"), pickup_point = push[3], otp = push[4], driver_name = driver_name, drop_point = drop_point, total_amount = total_amount)
                             await bot.delete_message(chat_id = push[0], message_id = push[1])
-                            updated_msg = await bot.send_message(chat_id = push[0], text = text, reply_markup = None)
+                            updated_msg = await bot.send_message(chat_id = push[0], text = text, reply_markup = await get_cancel_keyboard(push[5]))
                             # Запись в БД данных для пуша пассажиру
                             await crimgo_db.save_pass_message_id(user_id, updated_msg.message_id, updated_msg.chat.id)
                         except (Exception) as error:
@@ -422,7 +422,7 @@ async def push_messages(user_id, state, ticket_id, driver_chat_id):
                         try: 
                             text = passenger_text.new_pickup_point_time.format(time = (push[2]).strftime("%H:%M"), pickup_point = push[3], otp = push[4], driver_name = driver_name, drop_point = drop_point, total_amount = total_amount)
                             await bot.delete_message(chat_id = push[0], message_id = push[1])
-                            updated_msg = await bot.send_message(chat_id = push[0], text = text, reply_markup = None)
+                            updated_msg = await bot.send_message(chat_id = push[0], text = text, reply_markup = await get_cancel_keyboard(push[5]))
                             # Запись в БД данных для пуша пассажиру
                             await crimgo_db.save_pass_message_id(user_id, updated_msg.message_id, updated_msg.chat.id)
                         except (Exception) as error:

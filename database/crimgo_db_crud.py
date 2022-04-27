@@ -199,6 +199,7 @@ create_table_cancel_reason = '''CREATE TABLE IF NOT EXISTS public.cancel_details
     trip_id bigint NOT NULL,
     pass_id bigint NOT NULL,
     cancel_reason character varying COLLATE pg_catalog."default" NOT NULL,
+    "timestamp" timestamp without time zone NOT NULL,
     CONSTRAINT cancel_details_pkey PRIMARY KEY (payment_id)
 )
 
@@ -441,7 +442,7 @@ update_passenger_set_msg_chat_id = '''UPDATE passenger SET message_id = %s, chat
 
 # Возвращает инфу по билетам для пуша пользователю 
 #select_trip_pass_details = '''SELECT p.chat_id, p.message_id, t.final_pickup_time, pp.name, t.otp FROM ticket AS t, passenger AS p, pickup_point AS pp WHERE trip_id = %s AND t.status = 'active' AND t.pickup_point = pp.id'''
-select_trip_pass_details = '''SELECT pay.pass_id, p.message_id, t.final_pickup_time, pp.name, t.otp from ticket AS t, pickup_point AS pp, payment AS pay, passenger AS p WHERE trip_id = %s AND t.pickup_point = pp.id AND t.payment_id = pay.id AND pay.pass_id = p.telegram_id'''
+select_trip_pass_details = '''SELECT pay.pass_id, p.message_id, t.final_pickup_time, pp.name, t.otp, pay.id from ticket AS t, pickup_point AS pp, payment AS pay, passenger AS p WHERE trip_id = %s AND t.pickup_point = pp.id AND t.payment_id = pay.id AND pay.pass_id = p.telegram_id'''
 
 # Возвращает время высадки
 select_trip_drop_time = '''SELECT finish_time FROM trip WHERE status = \'awaiting_passengers\' AND id = %s'''
@@ -492,7 +493,7 @@ select_id_from_trip_by_driver = '''SELECT id FROM trip WHERE status = \'started\
 select_trip_id_by_payment_id = '''SELECT trip_id FROM ticket WHERE status = \'active\' AND payment_id = %s'''
 
 # Вставка причины отказа
-insert_into_cancel_details = '''INSERT INTO cancel_details (trip_id, pass_id, payment_id, cancel_reason) VALUES (%s, %s, %s, %s)'''
+insert_into_cancel_details = '''INSERT INTO cancel_details (trip_id, pass_id, payment_id, cancel_reason, timestamp) VALUES (%s, %s, %s, %s, %s)'''
 
 # Обновление статуса билета
 update_ticket_set_refused = '''UPDATE ticket SET status = \'refused\' WHERE trip_id = %s AND status = \'active\' AND payment_id =  %s'''
