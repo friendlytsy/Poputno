@@ -175,7 +175,8 @@ async def menu_pp_confirm(callback: types.CallbackQuery, state: FSMContext):
 async def menu_trip_confirm(callback: types.CallbackQuery, state: FSMContext):
     if callback.data != passenger_text.cancel:
         if callback.data != 'Повторить':
-            await FSMOrder_trip.s_trip_confirmation.set()
+            await FSMOrder_trip.s_payment_type.set()
+            # await FSMOrder_trip.s_trip_confirmation.set()
             # Сохраняем total_amount
             await passenger_helper.update_state_with_total_amount(callback, state)
             # Удаление предыдущего сообщения
@@ -197,10 +198,12 @@ async def menu_trip_confirm(callback: types.CallbackQuery, state: FSMContext):
                         await passenger_helper.save_data_to_state(trip_id, 'trip_id', state)
                         # Считаем время приблизительное подбора
                         aprox_time = await crimgo_db.calculate_raw_pickup_time(state)
+                        seat = await passenger_helper.get_data_from_state('seat', state)
+                        total_amount = await passenger_helper.get_data_from_state('total_amount', state)
                         # Сохраняет aprox_time в state
                         await passenger_helper.save_data_to_state(aprox_time, 'aprox_time', state)
                         # Отвечаем пассмажиру с приблизительным временем посадки
-                        msg = await callback.message.answer(passenger_text.approx_pickup_time.format(time = aprox_time), reply_markup=kb_trip_confirmation)
+                        msg = await callback.message.answer(passenger_text.approx_pickup_time.format(time = aprox_time, seat = seat, total_amount= total_amount), reply_markup=kb_payment_type)
                         # Сохраняем ИД сообщения
                         await passenger_helper.update_msg_list([msg.message_id], state)
                         await callback.answer()
@@ -209,10 +212,12 @@ async def menu_trip_confirm(callback: types.CallbackQuery, state: FSMContext):
                     await passenger_helper.save_data_to_state(trip_id, 'trip_id', state)
                     # Считаем время приблизительное подбора
                     aprox_time = await crimgo_db.calculate_raw_pickup_time(state)
+                    seat = await passenger_helper.get_data_from_state('seat', state)
+                    total_amount = await passenger_helper.get_data_from_state('total_amount', state)
                     # Сохраняет aprox_time в state
                     await passenger_helper.save_data_to_state(aprox_time, 'aprox_time', state)
                     # Отвечаем пассмажиру с приблизительным временем посадки
-                    msg = await callback.message.answer(passenger_text.approx_pickup_time.format(time = aprox_time), reply_markup=kb_trip_confirmation)
+                    msg = await callback.message.answer(passenger_text.approx_pickup_time.format(time = aprox_time, seat = seat, total_amount= total_amount), reply_markup=kb_payment_type)
                     # Сохраняем ИД сообщения
                     await passenger_helper.update_msg_list([msg.message_id], state)
                     await callback.answer()
@@ -243,21 +248,21 @@ async def menu_trip_confirm(callback: types.CallbackQuery, state: FSMContext):
         await state.finish()
         await callback.message.answer(passenger_text.order_canceled, reply_markup=kb_pass)
 
-# Быбор способа оплаты
-async def menu_payment_type(callback: types.CallbackQuery, state: FSMContext):
-    if callback.data == 'Ок':
-        await FSMOrder_trip.s_payment_type.set()
-        async with state.proxy() as data:
-            data['trip_confirm'] = callback.data
-            # Удаление предыдущего сообщения
-            await passenger_helper.remove_messages(callback.from_user.id, data['msg'])
-        msg = await callback.message.answer(passenger_text.pre_order.format(seat = data['seat'], total_amount= data['total_amount']), reply_markup=kb_payment_type)
-        await passenger_helper.update_msg_list([msg.message_id], state)
-    else:
-        await crimgo_db.restore_booked_seats(state)
-        await callback.message.answer(passenger_text.order_canceled)
-        await state.finish()
-    await callback.answer()
+# # Быбор способа оплаты
+# async def menu_payment_type(callback: types.CallbackQuery, state: FSMContext):
+#     if callback.data == 'Ок':
+#         await FSMOrder_trip.s_payment_type.set()
+#         async with state.proxy() as data:
+#             data['trip_confirm'] = callback.data
+#             # Удаление предыдущего сообщения
+#             await passenger_helper.remove_messages(callback.from_user.id, data['msg'])
+#         msg = await callback.message.answer(passenger_text.pre_order.format(seat = data['seat'], total_amount= data['total_amount']), reply_markup=kb_payment_type)
+#         await passenger_helper.update_msg_list([msg.message_id], state)
+#     else:
+#         await crimgo_db.restore_booked_seats(state)
+#         await callback.message.answer(passenger_text.order_canceled)
+#         await state.finish()
+#     await callback.answer()
 
 # Обработка способа оплаты и выбор соот-го состояния
 async def menu_handle_payment(callback: types.CallbackQuery, state: FSMContext):          
@@ -463,7 +468,7 @@ def register_handlers_client(dp: Dispatcher):
     dp.register_callback_query_handler(menu_seat_selection, state=FSMOrder_trip.s_seat_selection)
     dp.register_callback_query_handler(menu_pp_confirm, state=FSMOrder_trip.s_geolocation)
     dp.register_callback_query_handler(menu_trip_confirm, state=FSMOrder_trip.s_pp_confirmation)
-    dp.register_callback_query_handler(menu_payment_type, state=FSMOrder_trip.s_trip_confirmation)
+    # dp.register_callback_query_handler(menu_payment_type, state=FSMOrder_trip.s_trip_confirmation)
     dp.register_callback_query_handler(menu_handle_payment, state=FSMOrder_trip.s_payment_type)
     dp.register_callback_query_handler(cmd_cancel_order, Text(startswith='cancel ', ignore_case=True))
     dp.register_callback_query_handler(cmd_cancel_reason, state=FSMCancel_order.s_cancel_order)
