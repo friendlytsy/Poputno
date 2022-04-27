@@ -61,7 +61,7 @@ async def cmd_start_point(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     await state.finish()
 
-async def cmd_start_trip(callback: types.CallbackQuery):
+async def cmd_start_trip(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     # Обновление статуса поездки
     await crimgo_db.set_trip_status_start(callback, 'started')
@@ -110,6 +110,18 @@ async def cmd_start_trip(callback: types.CallbackQuery):
         text = text + 'Конечная {pp}, {time}'.format(pp = ending_station, time = trip_finish_time.strftime("%H:%M"))
     # Отобразить кнопку посадка
     await callback.message.answer(text, reply_markup=kb_onboarding_trip)
+
+    # Собриаем в инфо о поездке для уведомления пассажира
+    async with state.proxy() as data:
+        data['trip_id'] = callback.data.replace('Начать рейс ', '')
+    pass_trip_details = await crimgo_db.get_pass_trip_details(state)
+    # Отправляем нотификацию об старте шаттла
+    for push in pass_trip_details:
+        try: 
+            text = passenger_text.trip_is_started
+            await bot.send_message(chat_id = push[0], text = text, reply_markup = kb_pass)
+        except (Exception) as error:
+            logging.info(msg = error, stack_info = False)
     
 async def cmd_onboarding(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
