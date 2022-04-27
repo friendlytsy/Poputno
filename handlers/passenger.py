@@ -67,7 +67,7 @@ async def get_contact(message: types.Message):
 # Чат поддержки
 async def cmd_contact_with_support(message: types.Message):
     #await bot.send_contact(chat_id = message.from_user.id, phone_number = '+7 978 173-26-90', first_name = 'Администрация CrimGo')
-    await bot.send_message(chat_id=message.from_user.id, text=passenger_text.contact_with_support_link, parse_mode = passenger_text.html_parse_mode)
+    await bot.send_message(chat_id=message.from_user.id, text=passenger_text.contact_with_support_link, parse_mode = passenger_text.html_parse_mode, disable_web_page_preview=True)
 
 # Покупка билета
 async def cmd_order_trip(message: types.Message, state: FSMContext):
