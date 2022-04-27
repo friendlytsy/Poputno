@@ -358,6 +358,17 @@ async def check_available_trip_after_trip(driver_id):
         logging.error(msg=error, stack_info=True)
         return False
 
+# Проверка ожидающих маршрутов при попытке выйти из смены
+async def check_available_trip_to_stop_shift(driver_id):
+    try:
+        shuttle_route = await get_shuttle_route(driver_id)
+        cursor.execute(crimgo_db_crud.select_trip_available_by_driver_before_stop_shift, (driver_id, ))
+        trip_details = cursor.fetchone()
+        return trip_details
+    except (Exception, Error) as error:
+        logging.error(msg=error, stack_info=True)
+        return False
+
 # Возвращает маршрут на котором стоит шаттл
 async def get_shuttle_route(driver_id):
     try:

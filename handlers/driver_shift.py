@@ -244,9 +244,9 @@ async def cmd_continue_trip(callback: types.CallbackQuery, state: FSMContext):
 async def cmd_stop_shift(message: types.Message):
     assigned_trip = await crimgo_db.is_trip_assigned(message.from_user.id)
     if assigned_trip:
-        trip_details = await crimgo_db.check_available_trip_after_trip(message.from_user.id)
+        trip_details = await crimgo_db.check_available_trip_to_stop_shift(message.from_user.id)
         if trip_details is not None:
-            await message.answer('Вам назначен рейс {trip_id} "{route}". Старт в {start_time}.'.format(trip_id = trip_details[0], route = trip_details[1], start_time = (config.TIME_OFFSET + trip_details[2]).strftime("%H:%M")), reply_markup=kb_driver_shift)    
+            await message.answer(driver_text.cant_stop_shift.format(trip_id = trip_details[0], route = trip_details[1], start_time = (config.TIME_OFFSET + trip_details[2]).strftime("%H:%M")), reply_markup=kb_driver_shift)    
             # Сохраняем ИД сообщения для обновления
             await crimgo_db.set_shuttle_message_id_by_trip(message.message_id, trip_details[0])
     else:

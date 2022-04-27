@@ -302,8 +302,11 @@ insert_into_ticket = '''INSERT INTO ticket (payment_id, trip_id, pickup_point, b
 # Возвращает детали поездки, t.id, r.name, t.start_time
 select_trip_available = '''SELECT t.id, r.name, t.creation_time FROM trip AS t, route AS r WHERE t.shuttle_id = (SELECT id FROM shuttle WHERE name = %s) AND t.status = \'scheduled\' AND t.route = r.id'''
 
-# Возвращает поездки по видителю
+# Возвращает поездки по видителю и маршруту
 select_trip_available_by_driver = '''SELECT t.id, r.name, t.start_time FROM trip AS t, route AS r WHERE t.status = \'scheduled\' OR t.status = \'awaiting_passengers\' AND t.route = %s AND t.shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s) AND t.route = r.id ORDER BY t.start_time'''
+
+# Возвращает поездки по видителю, используется при завершении смены
+select_trip_available_by_driver_before_stop_shift = '''SELECT t.id, r.name, t.start_time FROM trip AS t, route AS r WHERE t.status = \'scheduled\' OR t.status = \'awaiting_passengers\' AND t.shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s) AND t.route = r.id ORDER BY t.start_time'''
 
 # Возвращает позицию шаттла по ИД водителя 
 select_shuttle_position = '''SELECT current_position FROM shuttle WHERE driver_id = %s'''
