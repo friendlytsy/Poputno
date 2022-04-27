@@ -6,7 +6,7 @@ about_service = 'https://teletype.in/@crimgo.ru/3lGEr343Vj2'
 
 chosen_seats = 'Вы выбрали {seats} мест(а)'
 
-contact_with_support_link = "<a href='https://t.me/crimgoru'>Администрация Попутно</a>"
+contact_with_support_link = "<a href='https://t.me/poputnohelp'>Администрация Попутно</a>"
 
 thanks = 'Спасибо'
 
