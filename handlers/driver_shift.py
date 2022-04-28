@@ -61,7 +61,7 @@ async def cmd_start_point(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     await state.finish()
 
-async def cmd_start_trip(callback: types.CallbackQuery):
+async def cmd_start_trip(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     # Обновление статуса поездки
     await crimgo_db.set_trip_status_start(callback, 'started')
@@ -110,6 +110,18 @@ async def cmd_start_trip(callback: types.CallbackQuery):
         text = text + 'Конечная {pp}, {time}'.format(pp = ending_station, time = trip_finish_time.strftime("%H:%M"))
     # Отобразить кнопку посадка
     await callback.message.answer(text, reply_markup=kb_onboarding_trip)
+
+    # Собриаем в инфо о поездке для уведомления пассажира
+    async with state.proxy() as data:
+        data['trip_id'] = callback.data.replace('Начать рейс ', '')
+    pass_trip_details = await crimgo_db.get_pass_trip_details(state)
+    # Отправляем нотификацию об старте шаттла
+    for push in pass_trip_details:
+        try: 
+            text = passenger_text.trip_is_started
+            await bot.send_message(chat_id = push[0], text = text, reply_markup = kb_pass)
+        except (Exception) as error:
+            logging.info(msg = error, stack_info = False)
     
 async def cmd_onboarding(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
@@ -244,9 +256,9 @@ async def cmd_continue_trip(callback: types.CallbackQuery, state: FSMContext):
 async def cmd_stop_shift(message: types.Message):
     assigned_trip = await crimgo_db.is_trip_assigned(message.from_user.id)
     if assigned_trip:
-        trip_details = await crimgo_db.check_available_trip_after_trip(message.from_user.id)
+        trip_details = await crimgo_db.check_available_trip_to_stop_shift(message.from_user.id)
         if trip_details is not None:
-            await message.answer('Вам назначен рейс {trip_id} "{route}". Старт в {start_time}.'.format(trip_id = trip_details[0], route = trip_details[1], start_time = (config.TIME_OFFSET + trip_details[2]).strftime("%H:%M")), reply_markup=kb_driver_shift)    
+            await message.answer(driver_text.cant_stop_shift.format(trip_id = trip_details[0], route = trip_details[1], start_time = (config.TIME_OFFSET + trip_details[2]).strftime("%H:%M")), reply_markup=kb_driver_shift)    
             # Сохраняем ИД сообщения для обновления
             await crimgo_db.set_shuttle_message_id_by_trip(message.message_id, trip_details[0])
     else:

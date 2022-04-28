@@ -52,7 +52,7 @@ async def get_driver_contact(message: types.Message, state: FSMContext):
     await state.finish()
 
 async def cmd_get_driver_contact_with_support(message: types.Message):
-    await bot.send_message(chat_id=message.from_user.id, text=passenger_text.contact_with_support_link, parse_mode=passenger_text.html_parse_mode)
+    await bot.send_message(chat_id=message.from_user.id, text=passenger_text.contact_with_support_link, parse_mode=passenger_text.html_parse_mode, disable_web_page_preview=True)
 
 
 def register_handlers_driver(dp: Dispatcher):
