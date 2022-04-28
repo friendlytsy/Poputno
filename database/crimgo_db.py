@@ -874,8 +874,13 @@ async def update_ticket_status(state):
             # Получаю trip_id
             cursor.execute(crimgo_db_crud.select_trip_id_by_payment_id, (data['payment_id'], ))
             trip_id = cursor.fetchone()
-            # Обновляем данные в билета
-            cursor.execute(crimgo_db_crud.update_ticket_set_refused, (trip_id, data['payment_id']))
-            connection.commit()
+            cursor.execute(crimgo_db_crud.select_trip_status_only, (trip_id, ))
+            trip_status = cursor.fetchone()[0]
+            if trip_status != 'started':
+                # Обновляем данные в билета
+                cursor.execute(crimgo_db_crud.update_ticket_set_refused, (trip_id[0], data['payment_id']))
+                connection.commit()
+            else:
+                logging.info(msg='cant refuse ticket: trip already started.') 
     except (Exception, Error) as error:
         logging.error(msg=error, stack_info=True)

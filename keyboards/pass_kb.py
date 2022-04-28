@@ -56,7 +56,7 @@ kb_trip_confirmation.add(btn_trip_accept).add(btn_trip_cancel)
 #    s_payment_type = State()
 kb_payment_type = InlineKeyboardMarkup()
 #btn_type_card = InlineKeyboardButton(text = 'Оплата картой', callback_data='Оплата картой')
-btn_type_cash = InlineKeyboardButton(text = 'Наличкой водителю', callback_data='Наличкой водителю')
+btn_type_cash = InlineKeyboardButton(text = 'Ок', callback_data='Наличкой водителю')
 kb_payment_type.add(btn_type_cash)
 
 #    s_cash_canceled = State()
