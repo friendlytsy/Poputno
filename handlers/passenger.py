@@ -199,7 +199,7 @@ async def menu_trip_confirm(callback: types.CallbackQuery, state: FSMContext):
                         # Считаем время приблизительное подбора
                         aprox_time = await crimgo_db.calculate_raw_pickup_time(state)
                         seat = await passenger_helper.get_data_from_state('seat', state)
-                        total_amount = await passenger_helper.get_data_from_state('total_amount', state)
+                        total_amount = round(await passenger_helper.get_data_from_state('total_amount', state))
                         # Сохраняет aprox_time в state
                         await passenger_helper.save_data_to_state(aprox_time, 'aprox_time', state)
                         # Отвечаем пассмажиру с приблизительным временем посадки
@@ -213,7 +213,7 @@ async def menu_trip_confirm(callback: types.CallbackQuery, state: FSMContext):
                     # Считаем время приблизительное подбора
                     aprox_time = await crimgo_db.calculate_raw_pickup_time(state)
                     seat = await passenger_helper.get_data_from_state('seat', state)
-                    total_amount = await passenger_helper.get_data_from_state('total_amount', state)
+                    total_amount = round(await passenger_helper.get_data_from_state('total_amount', state))
                     # Сохраняет aprox_time в state
                     await passenger_helper.save_data_to_state(aprox_time, 'aprox_time', state)
                     # Отвечаем пассмажиру с приблизительным временем посадки
@@ -280,7 +280,7 @@ async def menu_handle_payment(callback: types.CallbackQuery, state: FSMContext):
             await passenger_helper.remove_messages(callback.from_user.id, data['msg'])
         
         payment_id = await crimgo_db.successful_payment(state)
-        total_amount = await crimgo_db.get_total_amount(payment_id)
+        total_amount = round(await crimgo_db.get_total_amount(payment_id))
         driver_name = await crimgo_db.get_driver_name_by_trip(data['trip_id'])
         cancel_keyboard = await get_cancel_keyboard(payment_id)
         msg = await callback.message.answer(passenger_text.check_order.format(total_amount=total_amount, otp=data['otp'], aprox_time = data['aprox_time'], driver_name = driver_name, pickup_point = data['pickup_point'], drop_point = data['drop_point']), reply_markup = cancel_keyboard)
@@ -363,10 +363,10 @@ async def push_messages(user_id, state, ticket_id, driver_chat_id):
                     await crimgo_db.save_message_id_and_text(state, text)
 
                     # Редактируем сообщения пользователей
-                    pass_trip_details = await crimgo_db.get_pass_trip_details(state)
+                    pass_trip_details = await crimgo_db.get_pass_trip_details(state, 'active')
                     driver_name = await crimgo_db.get_driver_name_by_trip(data['trip_id'])
                     drop_point = await crimgo_db.get_drop_point_by_trip(data['trip_id'], ticket_id)
-                    total_amount = await crimgo_db.get_total_amount_by_trip(data['trip_id'], ticket_id)
+                    total_amount = round(await crimgo_db.get_total_amount_by_trip(data['trip_id'], ticket_id))
                     for push in pass_trip_details:
                         try: 
                             text = passenger_text.new_pickup_point_time.format(time = (push[2]).strftime("%H:%M"), pickup_point = push[3], otp = push[4], driver_name = driver_name, drop_point = drop_point, total_amount = total_amount)
@@ -419,10 +419,10 @@ async def push_messages(user_id, state, ticket_id, driver_chat_id):
                     await crimgo_db.save_message_id_and_text(state, text)
 
                     # Редактируем сообщения пользователей
-                    pass_trip_details = await crimgo_db.get_pass_trip_details(state)
+                    pass_trip_details = await crimgo_db.get_pass_trip_details(state, 'active')
                     driver_name = await crimgo_db.get_driver_name_by_trip(data['trip_id'])
                     drop_point = await crimgo_db.get_drop_point_by_trip(data['trip_id'], ticket_id)
-                    total_amount = await crimgo_db.get_total_amount_by_trip(data['trip_id'], ticket_id)
+                    total_amount = round(await crimgo_db.get_total_amount_by_trip(data['trip_id'], ticket_id))
                     for push in pass_trip_details:
                         try: 
                             text = passenger_text.new_pickup_point_time.format(time = (push[2]).strftime("%H:%M"), pickup_point = push[3], otp = push[4], driver_name = driver_name, drop_point = drop_point, total_amount = total_amount)

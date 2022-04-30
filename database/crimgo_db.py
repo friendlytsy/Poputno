@@ -1,4 +1,3 @@
-from distutils.log import error
 import psycopg2
 import datetime
 
@@ -179,21 +178,36 @@ async def create_trip(state):
             # Поиск шаттла на начальной остановке маршрута, сортировка по времени простоя
             cursor.execute(crimgo_db_crud.select_from_shuttle_order_by_timestamp, (data['route'], ))
             shuttle_id = cursor.fetchone()
-            count_of_awaiting_trips = 1
             
+            if shuttle_id is not None:
+                cursor.execute(crimgo_db_crud.select_far_trip_route, (shuttle_id, data['route']))
+                finish_time = cursor.fetchone()
+                if finish_time is not None:
+                    cursor.execute(crimgo_db_crud.insert_into_trip, (shuttle_id[0] ,'awaiting_passengers', data['route'],  datetime.datetime.now(), shuttle_id, data['seat'], datetime.datetime.now(), finish_time[0] + config.MAX_WAIT_TIME, finish_time[0] + config.MAX_WAIT_TIME + config.TRVL_TIME))
+                else:
+                    cursor.execute(crimgo_db_crud.insert_into_trip, (shuttle_id[0] ,'awaiting_passengers', data['route'],  datetime.datetime.now(), shuttle_id, data['seat'], datetime.datetime.now(), datetime.datetime.now() + config.MAX_WAIT_TIME, datetime.datetime.now() + config.MAX_WAIT_TIME + config.TRVL_TIME))
+                trip_id = cursor.fetchone()[0]
+                connection.commit()
+                return trip_id
+
             # Поиск ближайшего шаттла на противополжном маршруте, не считаю начальную остановку
             if shuttle_id is None:
                 cursor.execute(crimgo_db_crud.select_from_shuttle_opposite_route, (data['opposite'], data['opposite']))
                 shuttle_id = cursor.fetchone()
-                if shuttle_id is not None: count_of_awaiting_trips = await count_of_awaiting_trips(shuttle_id)
                 
             # Поиск шаттла на противополжной начальной остановке
             if shuttle_id is None:
                 cursor.execute(crimgo_db_crud.select_from_shuttle_order_by_timestamp, (data['opposite'], ))
                 shuttle_id = cursor.fetchone()
-                if shuttle_id is not None: count_of_awaiting_trips = await delay_start_time(shuttle_id) + 1
 
-            cursor.execute(crimgo_db_crud.insert_into_trip, (shuttle_id[0] ,'awaiting_passengers', data['route'],  datetime.datetime.now(), shuttle_id, data['seat'], datetime.datetime.now(), datetime.datetime.now() + config.MAX_WAIT_TIME * count_of_awaiting_trips, datetime.datetime.now() + (config.MAX_WAIT_TIME + config.TRVL_TIME) * count_of_awaiting_trips))
+            if shuttle_id is not None:
+                cursor.execute(crimgo_db_crud.select_far_trip, shuttle_id)
+                finish_time = cursor.fetchone()
+                if finish_time is not None:
+                    cursor.execute(crimgo_db_crud.insert_into_trip, (shuttle_id[0] ,'awaiting_passengers', data['route'],  datetime.datetime.now(), shuttle_id, data['seat'], datetime.datetime.now(), finish_time[0] + config.MAX_WAIT_TIME, finish_time[0] + config.MAX_WAIT_TIME + config.TRVL_TIME))
+                else:
+                    cursor.execute(crimgo_db_crud.insert_into_trip, (shuttle_id[0] ,'awaiting_passengers', data['route'],  datetime.datetime.now(), shuttle_id, data['seat'], datetime.datetime.now(), datetime.datetime.now() + config.MAX_WAIT_TIME, datetime.datetime.now() + config.MAX_WAIT_TIME + config.TRVL_TIME))
+            # cursor.execute(crimgo_db_crud.insert_into_trip, (shuttle_id[0] ,'awaiting_passengers', data['route'],  datetime.datetime.now(), shuttle_id, data['seat'], datetime.datetime.now(), datetime.datetime.now() + config.MAX_WAIT_TIME * count_of_awaiting_trips, datetime.datetime.now() + (config.MAX_WAIT_TIME + config.TRVL_TIME) * count_of_awaiting_trips))
             trip_id = cursor.fetchone()[0]
             connection.commit()
             return trip_id
@@ -202,16 +216,16 @@ async def create_trip(state):
         return False
 
 # Считаем на сколько нужно отложить старт
-async def delay_start_time(shuttle_id):
-    # Считаем кол-во поездок которые висят на шаттле, чтобы отложить start_time
-    cursor.execute(crimgo_db_crud.select_count_of_trip_by_shuttle_id, (shuttle_id, ))
-    test = cursor.fetchone()[0]
-    # Если поездок нет, значит счетчик делаем = 1, потом умножаем время MAX_WAIT_TIME и TRVL_TIME на этот счетчик при создании поездки
-    if test is not None and test == 0:
-        return 1
-    else:
-        # Если поезди есть, значит счетчик делаем + 1, потом умножаем время MAX_WAIT_TIME и TRVL_TIME на этот счетчик при создании поездки
-        return test + 1
+# async def delay_start_time(shuttle_id):
+#     # Считаем кол-во поездок которые висят на шаттле, чтобы отложить start_time
+#     cursor.execute(crimgo_db_crud.select_count_of_trip_by_shuttle_id, (shuttle_id, ))
+#     test = cursor.fetchone()[0]
+#     # Если поездок нет, значит счетчик делаем = 1, потом умножаем время MAX_WAIT_TIME и TRVL_TIME на этот счетчик при создании поездки
+#     if test is not None and test == 0:
+#         return 1
+#     else:
+#         # Если поезди есть, значит счетчик делаем + 1, потом умножаем время MAX_WAIT_TIME и TRVL_TIME на этот счетчик при создании поездки
+#         return test
 
 # Обновление времени
 async def update_trip_set_time_delta(state, ADD_DELTA_TIME):
@@ -760,10 +774,10 @@ async def save_pass_message_id(from_user_id, msg_id, chat_id):
     except (Exception, Error) as error:
         logging.error(msg=error, stack_info=True)
 
-async def get_pass_trip_details(state):
+async def get_pass_trip_details(state, ticket_status):
     try:
         async with state.proxy() as data:
-            cursor.execute(crimgo_db_crud.select_trip_pass_details, (data['trip_id'], ))
+            cursor.execute(crimgo_db_crud.select_trip_pass_details, (data['trip_id'], ticket_status))
             pass_trip_details = cursor.fetchall()
             return pass_trip_details
     except (Exception, Error) as error:
@@ -788,7 +802,7 @@ async def is_push_needed(state):
                 return True
             else: return False
     except (Exception, Error) as error:
-        logging.error(msg=error, stack_info=True)
+        logging.info(msg=error, stack_info=False)
         return False
 
 async def get_pickup_point_price(pickup_point, route):
