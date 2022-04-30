@@ -635,7 +635,7 @@ async def set_shuttle_position(callback, route_id_by_trip):
         # Позиция шаттла
         cursor.execute(crimgo_db_crud.select_current_possition_from_shuttle, (callback.from_user.id,))
         shuttle_possition = cursor.fetchone()
-        if (shuttle_possition[0] == 1 and pickup_point_list[0] != 1) or (shuttle_possition[0] == 9 and pickup_point_list[0] != 9):
+        if (shuttle_possition[0] == 1 and pickup_point_list[0] != 1) or (shuttle_possition[0] == 10 and pickup_point_list[0] != 10):
             cursor.execute(crimgo_db_crud.update_shutlle_set_position, (pickup_point_list[0], callback.from_user.id))
             connection.commit()
         else:

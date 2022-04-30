@@ -457,7 +457,7 @@ select_trip_start_time = '''SELECT start_time FROM trip WHERE status = \'awaitin
 select_route_by_trip_id = '''SELECT route FROM trip WHERE id = %s'''
 
 # Возвращает точки высадки
-select_drop_point_from_ticket = '''SELECT drop_point FROM ticket WHERE trip_id = (SELECT id FROM trip WHERE status = \'started\' AND shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s)) AND (status = \'active\' OR status = \'used\') ORDER BY final_drop_time'''
+select_drop_point_from_ticket = '''SELECT drop_point FROM ticket WHERE trip_id = (SELECT id FROM trip WHERE status = \'started\' AND shuttle_id = (SELECT id FROM shuttle WHERE driver_id = %s)) AND (status = \'active\' OR status = \'used\' OR status = \'cancel\') ORDER BY final_drop_time'''
 
 # Возвращает статус поездки
 select_trip_status = '''SELECT t.status FROM trip AS t, shuttle AS s, pickup_point AS p WHERE t.id = %s and s.current_position = (select min(id) from pickup_point WHERE route_id = t.route)'''
