@@ -346,7 +346,7 @@ select_tickets_by_driver = '''SELECT p.name, booked_seats, final_pickup_time, p.
                                                                             WHERE status = \'started\' AND shuttle_id = (SELECT id 
                                                                                                                             FROM shuttle 
                                                                                                                             WHERE driver_id = %s)) 
-                                AND (t.status = \'active\' OR t.status=\'used\') ORDER BY final_pickup_time'''
+                                AND (t.status = \'active\' OR t.status=\'used\' OR t.status=\'cancel\') ORDER BY final_pickup_time'''
 
 # Возвращает билеты по видителю
 select_tickets_by_driver_dp = '''SELECT p.name, booked_seats, final_drop_time, p.id, pm.payment_type, pm.total_amount 
@@ -356,7 +356,7 @@ select_tickets_by_driver_dp = '''SELECT p.name, booked_seats, final_drop_time, p
                                                                             WHERE status = \'started\' AND shuttle_id = (SELECT id 
                                                                                                                             FROM shuttle 
                                                                                                                             WHERE driver_id = %s)) 
-                                AND (t.status = \'active\' OR t.status=\'used\') ORDER BY final_drop_time'''
+                                AND (t.status = \'active\' OR t.status=\'used\' OR t.status=\'cancel\') ORDER BY final_drop_time'''
 
 # Возвращает билеты по позиции шаттла и водителю
 select_tickets_by_shuttle_position = '''SELECT otp FROM ticket WHERE pickup_point = %s AND status = \'active\' AND trip_id = (SELECT id 

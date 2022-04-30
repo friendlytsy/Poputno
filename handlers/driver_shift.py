@@ -306,6 +306,16 @@ async def cmd_finish_trip(callback: types.CallbackQuery, state: FSMContext):
             except (Exception) as error:
                 logging.info(msg = error, stack_info = False)
 
+        # Собриаем в инфо о билетах отменненых водителем
+        ticket_canceled = await crimgo_db.get_pass_trip_details(state, 'cancel')
+        # Отправляем 'Спасибо за поездку'
+        for ticket in ticket_canceled:
+            try: 
+                text = passenger_text.ticker_canceled
+                await bot.send_message(chat_id = ticket[0], text = text, reply_markup = kb_pass)
+            except (Exception) as error:
+                logging.info(msg = error, stack_info = False)
+
         await crimgo_db.set_shuttle_position_by_pp_name(start_point, data['route'])
         await state.finish()
 
