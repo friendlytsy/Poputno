@@ -1,4 +1,4 @@
-from distutils.log import error
+from distutils.log import INFO, error
 import psycopg2
 import datetime
 
@@ -803,7 +803,7 @@ async def is_push_needed(state):
                 return True
             else: return False
     except (Exception, Error) as error:
-        logging.error(msg=error, stack_info=True)
+        logging.error(msg=INFO, stack_info=False)
         return False
 
 async def get_pickup_point_price(pickup_point, route):
