@@ -445,7 +445,7 @@ update_passenger_set_msg_chat_id = '''UPDATE passenger SET message_id = %s, chat
 
 # Возвращает инфу по билетам для пуша пользователю 
 #select_trip_pass_details = '''SELECT p.chat_id, p.message_id, t.final_pickup_time, pp.name, t.otp FROM ticket AS t, passenger AS p, pickup_point AS pp WHERE trip_id = %s AND t.status = 'active' AND t.pickup_point = pp.id'''
-select_trip_pass_details = '''SELECT pay.pass_id, p.message_id, t.final_pickup_time, pp.name, t.otp, pay.id from ticket AS t, pickup_point AS pp, payment AS pay, passenger AS p WHERE trip_id = %s AND t.pickup_point = pp.id AND t.payment_id = pay.id AND pay.pass_id = p.telegram_id'''
+select_trip_pass_details = '''SELECT pay.pass_id, p.message_id, t.final_pickup_time, pp.name, t.otp, pay.id from ticket AS t, pickup_point AS pp, payment AS pay, passenger AS p WHERE trip_id = %s AND t.status = %s AND t.pickup_point = pp.id AND t.payment_id = pay.id AND pay.pass_id = p.telegram_id'''
 
 # Возвращает время высадки
 select_trip_drop_time = '''SELECT finish_time FROM trip WHERE status = \'awaiting_passengers\' AND id = %s'''
@@ -502,3 +502,9 @@ insert_into_cancel_details = '''INSERT INTO cancel_details (trip_id, pass_id, pa
 
 # Обновление статуса билета
 update_ticket_set_refused = '''UPDATE ticket SET status = \'refused\' WHERE trip_id = %s AND status = \'active\' AND payment_id =  %s'''
+
+# Возвращает finish_time поезкди по шаттлу от поздней к ренней
+select_far_trip = '''SELECT finish_time FROM trip WHERE shuttle_id = %s AND status != \'finished\' ORDER BY finish_time DESC'''
+
+# Возвращает finish_time поездки по шаттлу и маршруту поздней к ренней
+select_far_trip_route = '''SELECT finish_time FROM trip WHERE shuttle_id = %s AND status != \'finished\' AND route = (SELECT id FROM route WHERE name = %s) ORDER BY finish_time DESC'''

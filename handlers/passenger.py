@@ -363,7 +363,7 @@ async def push_messages(user_id, state, ticket_id, driver_chat_id):
                     await crimgo_db.save_message_id_and_text(state, text)
 
                     # Редактируем сообщения пользователей
-                    pass_trip_details = await crimgo_db.get_pass_trip_details(state)
+                    pass_trip_details = await crimgo_db.get_pass_trip_details(state, 'active')
                     driver_name = await crimgo_db.get_driver_name_by_trip(data['trip_id'])
                     drop_point = await crimgo_db.get_drop_point_by_trip(data['trip_id'], ticket_id)
                     total_amount = round(await crimgo_db.get_total_amount_by_trip(data['trip_id'], ticket_id))
@@ -419,7 +419,7 @@ async def push_messages(user_id, state, ticket_id, driver_chat_id):
                     await crimgo_db.save_message_id_and_text(state, text)
 
                     # Редактируем сообщения пользователей
-                    pass_trip_details = await crimgo_db.get_pass_trip_details(state)
+                    pass_trip_details = await crimgo_db.get_pass_trip_details(state, 'active')
                     driver_name = await crimgo_db.get_driver_name_by_trip(data['trip_id'])
                     drop_point = await crimgo_db.get_drop_point_by_trip(data['trip_id'], ticket_id)
                     total_amount = round(await crimgo_db.get_total_amount_by_trip(data['trip_id'], ticket_id))
