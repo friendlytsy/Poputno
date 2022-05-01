@@ -7,8 +7,8 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
 from aiogram.dispatcher.filters.state import State, StatesGroup
 
-from database import crimgo_db
-from random import randrange
+from database import crimgo_db, crimgo_db_crud
+from text import admin_text
 
 ID = None
 
@@ -83,6 +83,16 @@ async def input_shuttle_capacity(message: types.Message, state: FSMContext):
 
         await state.finish()
 
+async def cmd_check_active_tickets(message: types.Message):
+    if message.from_user.id == ID:
+        # Запрос активных билетов
+        # Возврат активных билетов
+        list_of_active_tickets = await crimgo_db.admin_list_of_active_tickets()
+        # Формируем сообщение
+        text = ''
+        for item in list_of_active_tickets:
+            text=text + admin_text.active_tickets.format(id=item[0], trip_id=item[1], booked_seats=item[2], final_pickup_time=item[3].strftime("%H:%M"), final_drop_time=item[4].strftime("%H:%M"))
+        await message.reply(text)
 
 def register_handlers_admin(dp: Dispatcher):
     dp.register_message_handler(cmd_driver_validate, commands=['Регистрация_водителя'])
@@ -90,6 +100,7 @@ def register_handlers_admin(dp: Dispatcher):
     dp.register_message_handler(cancel_handler, Text(equals='отмена', ignore_case=True), state="*")
     dp.register_message_handler(input_phone, state=FSMDriverReg.s_phone)
     dp.register_message_handler(cmd_shuttle_reg, commands=['Регистрация_шаттла'])
+    dp.register_message_handler(cmd_check_active_tickets, commands=['Активные_билеты'])
     dp.register_message_handler(input_shuttle_name, state=FSMShuttleReg.s_name)
     dp.register_message_handler(input_shuttle_capacity, state=FSMShuttleReg.s_capacity)
     dp.register_message_handler(cmd_get_menu, commands=['moderator'], is_chat_admin=True)
