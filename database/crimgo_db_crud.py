@@ -508,3 +508,6 @@ select_far_trip = '''SELECT finish_time FROM trip WHERE shuttle_id = %s AND stat
 
 # Возвращает finish_time поездки по шаттлу и маршруту поздней к ренней
 select_far_trip_route = '''SELECT finish_time FROM trip WHERE shuttle_id = %s AND status != \'finished\' AND route = (SELECT id FROM route WHERE name = %s) ORDER BY finish_time DESC'''
+
+# Возвращает все активные билеты
+select_tickets_where_active = '''SELECT id, trip_id, booked_seats, final_pickup_time, final_drop_time FROM ticket WHERE status = \'active\''''

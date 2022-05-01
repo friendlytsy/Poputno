@@ -898,3 +898,11 @@ async def update_ticket_status(state):
                 logging.info(msg='cant refuse ticket: trip already started.') 
     except (Exception, Error) as error:
         logging.error(msg=error, stack_info=True)
+
+async def admin_list_of_active_tickets():
+    try:
+        cursor.execute(crimgo_db_crud.select_tickets_where_active)
+        list = cursor.fetchall()
+        return list
+    except (Exception, Error) as error:
+        logging.info(msg=error, stack_info=False)

@@ -127,7 +127,7 @@ async def menu_seat_selection(callback: types.CallbackQuery, state: FSMContext):
 
 # Геопозиция
 async def menu_pp_confirm(callback: types.CallbackQuery, state: FSMContext):
-    if callback.data != passenger_text.order_canceled:
+    if callback.data != passenger_text.cancel:
         if callback.data != passenger_text.go_back:
             await FSMOrder_trip.s_pp_confirmation.set()
             async with state.proxy() as data:
@@ -463,6 +463,7 @@ def register_handlers_client(dp: Dispatcher):
     dp.register_message_handler(commands_start, commands=['start', 'help'])
     dp.register_message_handler(get_contact, content_types=['contact'])
     dp.register_message_handler(cmd_order_trip, Text(equals='Заказать прогулку', ignore_case=True))
+    dp.register_message_handler(cmd_order_trip, Text(equals='Заказать поездку', ignore_case=True))
     dp.register_message_handler(cmd_contact_with_support, Text(equals='Чат поддержки', ignore_case=True))
     dp.register_callback_query_handler(menu_route_selection, state=FSMOrder_trip.s_route_selection)
     dp.register_callback_query_handler(menu_seat_selection, state=FSMOrder_trip.s_seat_selection)
