@@ -1,7 +1,7 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
 #   /menu
-btn_order_trip = KeyboardButton('Заказать поездку') 
+btn_order_trip = KeyboardButton('Заказать прогулку') 
 #btn_order_subscription = KeyboardButton('Купить абонемент')
 btn_contact_support = KeyboardButton('Чат поддержки')
 
