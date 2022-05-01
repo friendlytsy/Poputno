@@ -127,7 +127,7 @@ async def menu_seat_selection(callback: types.CallbackQuery, state: FSMContext):
 
 # Геопозиция
 async def menu_pp_confirm(callback: types.CallbackQuery, state: FSMContext):
-    if callback.data != passenger_text.order_canceled:
+    if callback.data != passenger_text.cancel:
         if callback.data != passenger_text.go_back:
             await FSMOrder_trip.s_pp_confirmation.set()
             async with state.proxy() as data:
