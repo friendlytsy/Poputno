@@ -78,6 +78,7 @@ async def cmd_order_trip(message: types.Message, state: FSMContext):
 
 # Выбор маршрута
 async def menu_route_selection(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
     if callback.data != passenger_text.cancel:
         await FSMOrder_trip.s_seat_selection.set()
         async with state.proxy() as data:
@@ -91,18 +92,17 @@ async def menu_route_selection(callback: types.CallbackQuery, state: FSMContext)
         msg = await callback.message.answer(passenger_text.to_choose_seats, reply_markup=kb_seat)
         # Сохраняем ИД сообщения
         await passenger_helper.update_msg_list([msg.message_id], state)
-        await callback.answer()
     else:
         # Удаление предыдущего сообщения
         async with state.proxy() as data:
             await passenger_helper.remove_messages(callback.from_user.id, data['msg'])
-
-        await callback.answer()
         await state.finish()
         await callback.message.answer(passenger_text.order_canceled, reply_markup=kb_pass)
 
 # Выбор кол-ва мест
 async def menu_seat_selection(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+
     if callback.data != 'Отмена':
         await FSMOrder_trip.s_geolocation.set()
         async with state.proxy() as data:
@@ -116,17 +116,16 @@ async def menu_seat_selection(callback: types.CallbackQuery, state: FSMContext):
             msg = await callback.message.answer(passenger_text.to_choose_drop_point, reply_markup=kb_geoposition)
         # Сохраняем ИД сообщения
         await passenger_helper.update_msg_list([msg.message_id, msg_seats.message_id], state)
-        await callback.answer()
     else:
         # Удаление предыдущего сообщения
         async with state.proxy() as data:
             await passenger_helper.remove_messages(callback.from_user.id, data['msg'])
-        await callback.answer()
         await state.finish()
         await callback.message.answer(passenger_text.order_canceled, reply_markup=kb_pass)    
 
 # Геопозиция
 async def menu_pp_confirm(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
     if callback.data != passenger_text.cancel:
         if callback.data != passenger_text.go_back:
             await FSMOrder_trip.s_pp_confirmation.set()
@@ -162,17 +161,17 @@ async def menu_pp_confirm(callback: types.CallbackQuery, state: FSMContext):
             msg = await callback.message.answer(passenger_text.to_choose_seats, reply_markup=kb_seat)
             # Сохраняем ИД сообщения
             await passenger_helper.update_msg_list([msg.message_id], state)
-        await callback.answer()
+        
     else:
         # Удаление предыдущего сообщения
         async with state.proxy() as data:
             await passenger_helper.remove_messages(callback.from_user.id, data['msg'])
-        await callback.answer()
         await state.finish()
         await callback.message.answer(passenger_text.order_canceled, reply_markup=kb_pass)
 
 # Выбор остановки
 async def menu_trip_confirm(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
     if callback.data != passenger_text.cancel:
         if callback.data != 'Повторить':
             await FSMOrder_trip.s_payment_type.set()
@@ -194,7 +193,6 @@ async def menu_trip_confirm(callback: types.CallbackQuery, state: FSMContext):
                     # Если успешно создана
                     if (trip_id is False):
                         msg = await callback.message.answer(passenger_text.service_temporary_unavailable)
-                        await callback.answer()
                         await state.finish()
                     else:
                         await passenger_helper.save_data_to_state(trip_id, 'trip_id', state)
@@ -208,7 +206,6 @@ async def menu_trip_confirm(callback: types.CallbackQuery, state: FSMContext):
                         msg = await callback.message.answer(passenger_text.approx_pickup_time.format(time = aprox_time, seat = seat, total_amount= total_amount), reply_markup=kb_payment_type)
                         # Сохраняем ИД сообщения
                         await passenger_helper.update_msg_list([msg.message_id], state)
-                        await callback.answer()
                 # Если найдена поездка которую можно дополнить пассажирами
                 else:
                     await passenger_helper.save_data_to_state(trip_id, 'trip_id', state)
@@ -222,13 +219,11 @@ async def menu_trip_confirm(callback: types.CallbackQuery, state: FSMContext):
                     msg = await callback.message.answer(passenger_text.approx_pickup_time.format(time = aprox_time, seat = seat, total_amount= total_amount), reply_markup=kb_payment_type)
                     # Сохраняем ИД сообщения
                     await passenger_helper.update_msg_list([msg.message_id], state)
-                    await callback.answer()
             # в противном случае кидаем сообщение что сервис не доступен
             else:
                 await passenger_helper.notify_service_unavailable(callback, state)
         else:
             await FSMOrder_trip.s_geolocation.set()
-            await callback.answer()
             async with state.proxy() as data:
                 route = data['route']
             if route == 'К морю':
@@ -246,7 +241,6 @@ async def menu_trip_confirm(callback: types.CallbackQuery, state: FSMContext):
             # Удаление предыдущего сообщения
             await passenger_helper.remove_messages(callback.from_user.id, data['msg'])
             await passenger_helper.remove_messages(callback.from_user.id, data['msg_location'])
-        await callback.answer()
         await state.finish()
         await callback.message.answer(passenger_text.order_canceled, reply_markup=kb_pass)
 
