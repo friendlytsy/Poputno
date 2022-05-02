@@ -207,6 +207,37 @@ TABLESPACE pg_default;'''
 
 alter_table_cancel_reason = '''ALTER TABLE IF EXISTS public.cancel_details OWNER to postgres;'''
 
+
+# -- Table: public.driver_action_history
+create_table_driver_action_history = '''CREATE TABLE IF NOT EXISTS public.driver_action_history
+(
+    id bigint NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 ),
+    telegram_id bigint NOT NULL,
+    action text COLLATE pg_catalog."default" NOT NULL,
+    "timestamp" timestamp without time zone NOT NULL,
+    CONSTRAINT driver_action_history_pkey PRIMARY KEY (id)
+)
+
+TABLESPACE pg_default;'''
+
+alter_table_driver_action_history = '''ALTER TABLE IF EXISTS public.driver_action_history OWNER to postgres;'''
+
+
+# -- Table: public.passenger_action_history
+create_table_passenger_action_history = '''CREATE TABLE IF NOT EXISTS public.passenger_action_history
+(
+    id bigint NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 ),
+    telegram_id bigint NOT NULL,
+    action text COLLATE pg_catalog."default" NOT NULL,
+    "timestamp" timestamp without time zone NOT NULL,
+    CONSTRAINT passenger_action_history_pkey PRIMARY KEY (id)
+)
+
+TABLESPACE pg_default;'''
+
+alter_table_passenger_action_history = '''ALTER TABLE IF EXISTS public.passenger_action_history OWNER to postgres;'''
+
+
 ##################################################
 #                   SQL ЗАПРОСЫ                  #
 ##################################################
@@ -511,3 +542,8 @@ select_far_trip_route = '''SELECT finish_time FROM trip WHERE shuttle_id = %s AN
 
 # Возвращает все активные билеты
 select_tickets_where_active = '''SELECT id, trip_id, booked_seats, final_pickup_time, final_drop_time FROM ticket WHERE status = \'active\''''
+
+# Вставляет запись о действиях пользователя
+insert_into_passenger_action = '''INSERT INTO passenger_action_history (telegram_id, action, timestamp) VALUES (%s, %s, %s)'''
+
+insert_into_driver_action = '''INSERT INTO driver_action_history (telegram_id, action, timestamp) VALUES (%s, %s, %s)'''

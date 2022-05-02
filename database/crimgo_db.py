@@ -906,3 +906,17 @@ async def admin_list_of_active_tickets():
         return list
     except (Exception, Error) as error:
         logging.info(msg=error, stack_info=False)
+
+async def save_action(telegram_id, action):
+    try:
+        cursor.execute(crimgo_db_crud.insert_into_passenger_action, (telegram_id, action, datetime.datetime.now()))
+        connection.commit()
+    except (Exception, Error) as error:
+        logging.info(msg=error, stack_info=False)
+
+async def save_driver_action(telegram_id, action):
+    try:
+        cursor.execute(crimgo_db_crud.insert_into_driver_action, (telegram_id, action, datetime.datetime.now()))
+        connection.commit()
+    except (Exception, Error) as error:
+        logging.info(msg=error, stack_info=False)

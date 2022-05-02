@@ -51,3 +51,7 @@ async def get_data_from_state(from_data_type, state: FSMContext):
 async def save_data_to_state(value, to_data_type, state: FSMContext):
     async with state.proxy() as data:
         data[to_data_type] = value
+
+# Запись в бд действий пассажира
+async def save_passenger_action(telegram_id, action):
+    await crimgo_db.save_action(telegram_id, action)

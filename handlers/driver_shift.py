@@ -13,6 +13,8 @@ from config import config
 
 from text import driver_text, passenger_text
 
+from helper import driver_helper
+
 import logging
 
 class FSMStartDriverShift(StatesGroup):
@@ -27,6 +29,9 @@ class FSMCodeVerification(StatesGroup):
 async def cmd_start_shift(message: types.Message):
     await FSMStartDriverShift.s_inpute_shuttle_name.set()
     await message.reply('Введите имя шаттла', reply_markup=ReplyKeyboardRemove())
+
+    # Сохраняем действие 
+    await driver_helper.save_driver_action(message.from_user.id, cmd_start_shift.__name__)
     
 async def cmd_shuttle_bind(message: types.Message, state: FSMContext): 
     if (await crimgo_db.check_shuttle_name_and_status(message.text)):
@@ -37,6 +42,9 @@ async def cmd_shuttle_bind(message: types.Message, state: FSMContext):
     else:
         await message.reply('Ошибка, неверное имя шаттла или шаттл занят', reply_markup=kb_driver)
         await state.finish()
+
+     # Сохраняем действие 
+    await driver_helper.save_driver_action(message.from_user.id, cmd_shuttle_bind.__name__ + ': ' + message.text)
 
 async def cmd_start_point(callback: types.CallbackQuery, state: FSMContext):
     async with state.proxy() as data:
@@ -60,6 +68,9 @@ async def cmd_start_point(callback: types.CallbackQuery, state: FSMContext):
 
     await callback.answer()
     await state.finish()
+
+     # Сохраняем действие 
+    await driver_helper.save_driver_action(callback.from_user.id, cmd_start_point.__name__ + ': ' + callback.data)
 
 async def cmd_start_trip(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
@@ -140,6 +151,9 @@ async def cmd_start_trip(callback: types.CallbackQuery, state: FSMContext):
         except (Exception) as error:
             logging.info(msg = error, stack_info = False)
     
+     # Сохраняем действие 
+    await driver_helper.save_driver_action(callback.from_user.id, cmd_start_trip.__name__ + ': ' + callback.data)
+
 async def cmd_onboarding(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
@@ -173,6 +187,9 @@ async def cmd_onboarding(callback: types.CallbackQuery, state: FSMContext):
         # data['t_counter'] = t_otp
         data['shuttle_position'] = shuttle_position
  
+     # Сохраняем действие 
+    await driver_helper.save_driver_action(callback.from_user.id, cmd_onboarding.__name__ + ': ' + callback.data)
+
 # получение кодов и проверка
 async def cmd_code_verification(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
@@ -208,6 +225,9 @@ async def cmd_code_verification(callback: types.CallbackQuery, state: FSMContext
         await state.finish()
         await callback.message.answer(driver_text.trip_continue, reply_markup=kb_continue_trip)
     
+    # Сохраняем действие 
+    await driver_helper.save_driver_action(callback.from_user.id, cmd_code_verification.__name__ + ': ' + callback.data)
+
 # Продожить поездку
 async def cmd_continue_trip(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
@@ -270,6 +290,9 @@ async def cmd_continue_trip(callback: types.CallbackQuery, state: FSMContext):
         if route == 2:
             await callback.message.answer(text, reply_markup=kb_outboarding_trip)
 
+   # Сохраняем действие 
+    await driver_helper.save_driver_action(callback.from_user.id, cmd_continue_trip.__name__ + ': ' + callback.data)
+
 async def cmd_stop_shift(message: types.Message):
     assigned_trip = await crimgo_db.is_trip_assigned(message.from_user.id)
     if assigned_trip:
@@ -281,6 +304,9 @@ async def cmd_stop_shift(message: types.Message):
     else:
         await crimgo_db.stop_driver_shift(message)
         await message.reply('Смена окончена', reply_markup=kb_driver)
+
+    # Сохраняем действие 
+    await driver_helper.save_driver_action(message.from_user.id, cmd_stop_shift.__name__)
 
 async def cmd_finish_trip(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
@@ -343,6 +369,9 @@ async def cmd_finish_trip(callback: types.CallbackQuery, state: FSMContext):
             await crimgo_db.set_shuttle_message_id(msg.message_id, state)
     else:
         await message.reply('Произошла ошибка, повторите позже', reply_markup=ReplyKeyboardRemove())
+
+   # Сохраняем действие 
+    await driver_helper.save_driver_action(callback.from_user.id, cmd_finish_trip.__name__ + ': ' + callback.data)
 
 def register_handlers_driver_on_shift(dp: Dispatcher):
     dp.register_message_handler(cmd_start_shift, Text(equals='Текущее состояние: не на линии', ignore_case=False))
