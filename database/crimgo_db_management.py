@@ -45,6 +45,14 @@ def crimgo_check_tables(cursor, connection):
         cursor.execute(crimgo_db_crud.create_table_cancel_reason)
         cursor.execute(crimgo_db_crud.alter_table_cancel_reason)
 
+    #-- Table: public.passenger_action_history
+        cursor.execute(crimgo_db_crud.create_table_passenger_action_history)
+        cursor.execute(crimgo_db_crud.alter_table_passenger_action_history)
+    
+    #-- Table: public.driver_action_history
+        cursor.execute(crimgo_db_crud.create_table_driver_action_history)
+        cursor.execute(crimgo_db_crud.alter_table_driver_action_history)
+
         connection.commit()
         logging.info(msg='Готово')
     except (Exception, Error) as error:

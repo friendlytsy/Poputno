@@ -2,11 +2,10 @@ from aiogram import Dispatcher, types
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.dispatcher.filters import Text
-from datetime import timedelta
 
 from create_bot import bot
 from database import crimgo_db
-from keyboards import kb_pass, kb_driver, kb_path, kb_seat, kb_geoposition, kb_pp_confirmation, kb_trip_confirmation, kb_payment_type, kb_driver_shift, kb_generic_start, kb_cancel_reason
+from keyboards import kb_pass, kb_driver, kb_path, kb_seat, kb_geoposition, kb_pp_confirmation, kb_payment_type, kb_driver_shift, kb_generic_start, kb_cancel_reason
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from random import randrange
@@ -76,6 +75,9 @@ async def cmd_order_trip(message: types.Message, state: FSMContext):
     # Сохраняем ИД сообщения
     await passenger_helper.update_msg_list([msg.message_id], state)
 
+    # Сохраняем действие пассажира
+    await passenger_helper.save_passenger_action(message.from_user.id, cmd_order_trip.__name__)
+
 # Выбор маршрута
 async def menu_route_selection(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
@@ -98,6 +100,9 @@ async def menu_route_selection(callback: types.CallbackQuery, state: FSMContext)
             await passenger_helper.remove_messages(callback.from_user.id, data['msg'])
         await state.finish()
         await callback.message.answer(passenger_text.order_canceled, reply_markup=kb_pass)
+
+    # Сохраняем действие пассажира
+    await passenger_helper.save_passenger_action(callback.from_user.id, menu_route_selection.__name__ + ': ' + callback.data)
 
 # Выбор кол-ва мест
 async def menu_seat_selection(callback: types.CallbackQuery, state: FSMContext):
@@ -122,6 +127,9 @@ async def menu_seat_selection(callback: types.CallbackQuery, state: FSMContext):
             await passenger_helper.remove_messages(callback.from_user.id, data['msg'])
         await state.finish()
         await callback.message.answer(passenger_text.order_canceled, reply_markup=kb_pass)    
+
+    # Сохраняем действие пассажира
+    await passenger_helper.save_passenger_action(callback.from_user.id, menu_seat_selection.__name__ + ': ' + callback.data)
 
 # Геопозиция
 async def menu_pp_confirm(callback: types.CallbackQuery, state: FSMContext):
@@ -168,6 +176,9 @@ async def menu_pp_confirm(callback: types.CallbackQuery, state: FSMContext):
             await passenger_helper.remove_messages(callback.from_user.id, data['msg'])
         await state.finish()
         await callback.message.answer(passenger_text.order_canceled, reply_markup=kb_pass)
+
+    # Сохраняем действие пассажира
+    await passenger_helper.save_passenger_action(callback.from_user.id, menu_pp_confirm.__name__ + ': ' + callback.data)
 
 # Выбор остановки
 async def menu_trip_confirm(callback: types.CallbackQuery, state: FSMContext):
@@ -244,6 +255,9 @@ async def menu_trip_confirm(callback: types.CallbackQuery, state: FSMContext):
         await state.finish()
         await callback.message.answer(passenger_text.order_canceled, reply_markup=kb_pass)
 
+    # Сохраняем действие пассажира
+    await passenger_helper.save_passenger_action(callback.from_user.id, menu_trip_confirm.__name__ + ': ' + callback.data)
+
 # # Быбор способа оплаты
 # async def menu_payment_type(callback: types.CallbackQuery, state: FSMContext):
 #     if callback.data == 'Ок':
@@ -307,6 +321,9 @@ async def menu_handle_payment(callback: types.CallbackQuery, state: FSMContext):
             await crimgo_db.save_message_id_and_text(state, text)
 
         await state.finish()
+
+    # Сохраняем действие пассажира
+    await passenger_helper.save_passenger_action(callback.from_user.id, menu_handle_payment.__name__ + ': ' + callback.data)
 
 # Пуш водителю или пасажару
 async def push_messages(user_id, state, ticket_id, driver_chat_id):
@@ -440,6 +457,9 @@ async def cmd_cancel_order(callback: types.CallbackQuery, state: FSMContext):
     # Перейти в статут ожидания ответа
     await FSMCancel_order.s_cancel_order.set()
 
+    # Сохраняем действие пассажира
+    await passenger_helper.save_passenger_action(callback.from_user.id, cmd_cancel_order.__name__ + ': ' + callback.data)
+
 async def cmd_cancel_reason(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     # Сохраняем причину отказа и ИД пассижира в state
@@ -452,8 +472,11 @@ async def cmd_cancel_reason(callback: types.CallbackQuery, state: FSMContext):
     # Благодарим за пояснение причины отказа
     await callback.message.reply(passenger_text.order_canceled_with_reason, reply_markup=kb_pass)
     # Оповестить водителя?
-
+    
     await state.finish()
+
+    # Сохраняем действие пассажира
+    await passenger_helper.save_passenger_action(callback.from_user.id, cmd_cancel_reason.__name__ + ': ' + callback.data)
 
 def register_handlers_client(dp: Dispatcher):
     dp.register_message_handler(commands_start, commands=['start', 'help'])
