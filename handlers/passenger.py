@@ -194,6 +194,8 @@ async def menu_trip_confirm(callback: types.CallbackQuery, state: FSMContext):
                     # Если успешно создана
                     if (trip_id is False):
                         msg = await callback.message.answer(passenger_text.service_temporary_unavailable)
+                        await callback.answer()
+                        await state.finish()
                     else:
                         await passenger_helper.save_data_to_state(trip_id, 'trip_id', state)
                         # Считаем время приблизительное подбора
