@@ -1,4 +1,4 @@
-from os import stat
+import logging
 from aiogram.dispatcher import FSMContext
 from create_bot import bot
 from aiogram import types
@@ -7,8 +7,11 @@ from text import passenger_text
 
 # Удаления сообщений в списке msg_id_list
 async def remove_messages(chat_id, msg_id_list):
-    for msg in msg_id_list:
-        await bot.delete_message(chat_id=chat_id, message_id=msg)
+    try:
+        for msg in msg_id_list:
+            await bot.delete_message(chat_id=chat_id, message_id=msg)
+    except (Exception) as error:
+        logging.info(msg=error, stack_info=True)
 
 # Добавления сообщений в data['msg']
 async def update_msg_list(msg_id_list, state: FSMContext):
